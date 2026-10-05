@@ -14,6 +14,18 @@
         <div id="content"></div>
         <div id="orientation"></div>
         <div id="loader">Loading ...</div>
+        
+        <!-- ERROR LOGGING CONTAINER -->
+        <div id="debug-log" style="position:fixed; bottom:10px; left:10px; color:#ff3333; background:rgba(0,0,0,0.8); z-index:99999; font-family:monospace; font-size:12px; pointer-events:none; padding:5px; border-radius:4px;"></div>
+        
+        <script>
+            // Capture errors and display them on the bottom left
+            window.addEventListener('error', (event) => {
+                const log = document.getElementById('debug-log');
+                log.innerHTML += `<div>ERROR: ${event.message}</div>`;
+            });
+        </script>
+
         <script type="text/javascript" src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
         <script type="text/javascript" src="assets/box2dweb/nape.min.js">
             var nape ="nape.min.js" ;
@@ -41,26 +53,10 @@
                 onEvent: function (event) {
                     switch (event.name) {
                         case "SDK_GAME_START":
-                            // advertisement done, resume game logic and unmute audio
                             myDispatchEvent("SDK_GAME_START");
                             break;
                         case "SDK_GAME_PAUSE":
-                            // pause game logic / mute audio
                             myDispatchEvent("SDK_GAME_PAUSE");
-                            // document.getElementById("content").dispatchEvent(new Event("SDK_GAME_PAUSE"));
-                            break;
-                        case "SDK_GDPR_TRACKING":
-                            // this event is triggered when your user doesn't want to be tracked
-                            console.log("SDK_GDPR_TRACKING");
-                            break;
-                        case "SDK_GDPR_TARGETING":
-                            // this event is triggered when your user doesn't want personalised targeting of ads and such
-                            console.log("SDK_GDPR_TARGETING");
-                            break;
-                        case "SDK_READY":
-                            // this event is triggered when your user doesn't want personalised targeting of ads and such
-                            console.log("SDK_READY");
-                            // gdsdk.openConsole();
                             break;
                     }
                 },
@@ -186,21 +182,18 @@
             document.getElementById('host-key').style.display = e.target.checked ? 'block' : 'none';
           };
 
-          // Host button action
           document.getElementById('btn-create-room').onclick = () => {
             const isPrivate = document.getElementById('check-private').checked;
             const passkey = document.getElementById('host-key').value;
             socket.emit('create_room', { isPrivate, passkey });
           };
 
-          // Join private room action
           document.getElementById('btn-submit-private').onclick = () => {
             const roomId = document.getElementById('join-room-id').value;
             const passkey = document.getElementById('join-room-key').value;
             socket.emit('join_room', { roomId, passkey });
           };
 
-          // Render public rooms
           socket.on('public_rooms_update', (rooms) => {
             const container = document.getElementById('public-room-list');
             if (!rooms.length) {
@@ -222,22 +215,51 @@
 
           socket.on('room_created', ({ roomId, isPrivate }) => {
             window.netState.isHost = true;
-            document.getElementById('mp-modal').style.display = 'none';
-            alert(`Room Created!\nCode: ${roomId}` + (isPrivate ? '\n(Private Match)' : ''));
+            document.getElementById('mp-modal').innerHTML = `
+              <h2>Room: ${roomId}</h2>
+              <p>Waiting for Player 2...</p>
+              <button class="mp-btn" id="btn-force-start" style="display:none; background:#0f0; margin-top:15px;">START MATCH</button>
+            `;
+            
+            document.getElementById('btn-force-start').onclick = () => {
+               socket.emit('force_start_match');
+            };
           });
 
           socket.on('joined_room', ({ roomId }) => {
             window.netState.isGuest = true;
-            document.getElementById('mp-modal').style.display = 'none';
-            alert(`Connected to Room: ${roomId}`);
+            document.getElementById('mp-modal').innerHTML = `<h2>Connected!</h2><p>Waiting for Host to start the match...</p>`;
             bindGuestInputListeners();
           });
 
           socket.on('player_connected', () => {
-            alert('Player 2 has joined! Choose "2 PLAYERS" mode in the main menu to begin.');
+            const startBtn = document.getElementById('btn-force-start');
+            if(startBtn) startBtn.style.display = 'block';
           });
 
-          socket.on('join_error', (msg) => alert(msg));
+          // FORCE START THE MATCH
+          socket.on('jump_to_arena', () => {
+            try {
+              document.getElementById('mp-modal').style.display = 'none';
+              
+              const inv = window.GameInventory.instance;
+              if(!inv) throw new Error("Inventory not found. Please ensure 24.js was compiled correctly.");
+
+              inv.gameMode = 4;
+              inv.matchData.matchMode = 0;
+              inv.matchData.teams = [0, 1];
+              inv.matchData.players = [[0], [0]];
+              inv.matchData.pb = [[false], [false]];
+              inv.matchData.skills = [[0], [0]];
+              inv.matchData.forms = [[0], [0]];
+              
+              window.Phaser.GAMES[0].state.start("gameplay");
+            } catch (err) {
+              const log = document.getElementById('debug-log');
+              log.innerHTML += `<div>CRASH: ${err.message}</div>`;
+              console.error(err);
+            }
+          });
 
           function bindGuestInputListeners() {
             const keyMap = { KeyA: 'left', KeyD: 'right', KeyW: 'jump', KeyS: 'down', KeyB: 'action', KeyV: 'super' };

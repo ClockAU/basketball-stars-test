@@ -180,10 +180,10 @@ var v = function (t) {
             this.timer.updateScore(-1, s.s[0]);
             this.timer.updateScore(1, s.s[1]);
         }
-        return; // Guests do not run the rest of the update loop
+        // DELETED EARLY RETURN - Letting Guest execute the rest of the engine loop so the screen renders
     }
 
-    // 2. RUN GAME LOGIC (Host or Offline)
+    // 2. RUN GAME LOGIC (Both Host and Guest run this so animations tick)
     if (this.isPaused) {
       if (this.m_tribune) {
         this.m_tribune.volume = 0;
@@ -196,8 +196,7 @@ var v = function (t) {
         if (this.isAlleyOop) {
           this.physics2.update(e);
         }
-        t.prototype.update.call(this, e); // Updates internal states
-        
+        t.prototype.update.call(this, e);
         if (this.isEnd) {
           this.deltaEndTime += e;
           if (this.deltaEndTime > this.delayEndTime) {

@@ -18,10 +18,8 @@ function getPublicRooms() {
 }
 
 io.on('connection', (socket) => {
-  // Send the current list of available public rooms when someone connects
   socket.emit('public_rooms_update', getPublicRooms());
 
-  // 1. Create a Room (Public or Private)
   socket.on('create_room', ({ isPrivate, passkey, hostName }) => {
     const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
     rooms[roomId] = {
@@ -37,11 +35,9 @@ io.on('connection', (socket) => {
     socket.isHost = true;
 
     socket.emit('room_created', { roomId, isPrivate });
-    // Broadcast updated public room list to everyone in the lobby
     io.emit('public_rooms_update', getPublicRooms());
   });
 
-  // 2. Join a Room
   socket.on('join_room', ({ roomId, passkey }) => {
     const id = roomId.trim().toUpperCase();
     const room = rooms[id];
@@ -66,7 +62,7 @@ io.on('connection', (socket) => {
     io.emit('public_rooms_update', getPublicRooms());
   });
 
-  // 3. Gameplay Relays
+  // GAMEPLAY RELAYS
   socket.on('host_state', (data) => {
     if (socket.roomId) {
       socket.to(socket.roomId).emit('sync_state', data);
@@ -79,7 +75,13 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 4. Handle Disconnects
+  // START MATCH EVENT
+  socket.on('force_start_match', () => {
+    if (socket.roomId) {
+      io.to(socket.roomId).emit('jump_to_arena');
+    }
+  });
+
   socket.on('disconnect', () => {
     if (socket.roomId && rooms[socket.roomId]) {
       io.to(socket.roomId).emit('opponent_disconnected');

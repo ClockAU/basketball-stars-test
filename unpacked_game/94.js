@@ -30,16 +30,18 @@ var o = function (t) {
     this.currentMove = 0;
     this.currentDash = 0;
 
-    // MULTIPLAYER: Use remote network inputs when hosting online
-    if (window.netState && window.netState.isHost && window.remoteP2Input) {
-      var inp = window.remoteP2Input;
-      if (inp.left) this.currentMove--;
-      if (inp.right) this.currentMove++;
-      this.currentJump = !!inp.jump;
-      this.currentAction = !!inp.action;
-      this.currentSuper = !!inp.super;
-      this.currentBlockOrPump = !!inp.down;
-      return;
+    // MULTIPLAYER: If hosting, ONLY use network inputs. Strictly block local fallback.
+    if (window.netState && window.netState.isHost) {
+      if (window.remoteP2Input) {
+        var inp = window.remoteP2Input;
+        if (inp.left) this.currentMove--;
+        if (inp.right) this.currentMove++;
+        this.currentJump = !!inp.jump;
+        this.currentAction = !!inp.action;
+        this.currentSuper = !!inp.super;
+        this.currentBlockOrPump = !!inp.down;
+      }
+      return; // Do NOT process offline keys below
     }
 
     if (n.default.instance.isbtnLeft) {
