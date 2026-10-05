@@ -21,6 +21,10 @@ io.on('connection', (socket) => {
   console.log('Player connected:', socket.id);
   socket.emit('public_rooms_update', getPublicRooms());
 
+  socket.on('get_public_rooms', () => {
+    socket.emit('public_rooms_update', getPublicRooms());
+  });
+
   socket.on('create_room', ({ isPrivate, passkey, hostName }) => {
     const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
     rooms[roomId] = {
@@ -28,7 +32,9 @@ io.on('connection', (socket) => {
       guest: null,
       hostName: hostName || 'Player 1',
       isPrivate: !!isPrivate,
-      passkey: isPrivate ? String(passkey).trim() : null
+      passkey: isPrivate ? String(passkey).trim() : null,
+      hostChar: null,
+      guestChar: null
     };
 
     socket.join(roomId);
@@ -68,6 +74,21 @@ io.on('connection', (socket) => {
     io.emit('public_rooms_update', getPublicRooms());
   });
 
+  // CHARACTER SELECTION: Relay character choice to opponent
+  socket.on('select_character', (charId) => {
+    if (socket.roomId && rooms[socket.roomId]) {
+      const room = rooms[socket.roomId];
+      if (socket.id === room.host) {
+        room.hostChar = charId;
+      } else {
+        room.guestChar = charId;
+      }
+      // Tell opponent
+      socket.to(socket.roomId).emit('opponent_selected_char', charId);
+      console.log('Character selected in', socket.roomId, ':', charId);
+    }
+  });
+
   // GAMEPLAY RELAYS: Host broadcasts physics state to guest
   socket.on('host_state', (data) => {
     if (socket.roomId) {
@@ -79,6 +100,13 @@ io.on('connection', (socket) => {
   socket.on('guest_input', (data) => {
     if (socket.roomId) {
       socket.to(socket.roomId).emit('sync_input', data);
+    }
+  });
+
+  // MATCH END: Relay end state to guest
+  socket.on('match_ended', (data) => {
+    if (socket.roomId) {
+      socket.to(socket.roomId).emit('match_ended', data);
     }
   });
 

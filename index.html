@@ -8,6 +8,10 @@
         <title>Basketball Stars | 3kh0</title>
 
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <style>
+          body { margin: 0; padding: 0; }
+          #content { width: 100%; height: 100%; overflow: hidden; }
+        </style>
     </head>
     <script src="/js/main.js"></script>
     <body>
@@ -16,7 +20,7 @@
         <div id="loader">Loading ...</div>
         
         <!-- ERROR LOGGING CONTAINER -->
-        <div id="debug-log" style="position:fixed; bottom:10px; left:10px; color:#ff3333; background:rgba(0,0,0,0.8); z-index:99999; font-family:monospace; font-size:12px; pointer-events:none; padding:5px; border-radius:4px;"></div>
+        <div id="debug-log" style="position:fixed; bottom:10px; left:10px; color:#ff3333; background:rgba(0,0,0,0.8); z-index:99999; font-family:monospace; font-size:12px; pointer-events:none; padding:5px; border-radius:4px; max-width:400px; max-height:200px; overflow-y:auto;"></div>
         
         <script>
             // Capture errors and display them on the bottom left
@@ -73,8 +77,23 @@
         </script>
         <script type="text/javascript" src="assets/basketball_legends_2019.min.js"></script>
 
-        <!-- MULTIPLAYER LOBBY UI -->
+        <!-- MULTIPLAYER & TWO-PLAYER UI -->
         <style>
+          #game-mode-select {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #111e2e;
+            color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            font-family: Arial, sans-serif;
+            z-index: 10000;
+            text-align: center;
+          }
+
           #mp-modal {
             position: fixed;
             top: 50%;
@@ -88,18 +107,62 @@
             font-family: Arial, sans-serif;
             z-index: 10000;
             width: 320px;
+            max-height: 80vh;
+            overflow-y: auto;
           }
-          .mp-btn {
+
+          #char-select-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #111e2e;
+            color: #fff;
+            padding: 24px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            font-family: Arial, sans-serif;
+            z-index: 10000;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+          }
+
+          .mp-btn, .mode-btn, .char-btn {
             background: #00ccff;
             border: none;
-            padding: 8px 14px;
+            padding: 10px 16px;
             color: #000;
             font-weight: bold;
             cursor: pointer;
             border-radius: 4px;
-            margin: 4px 0;
-            width: 100%;
+            margin: 6px;
+            font-size: 14px;
           }
+
+          .mode-btn {
+            padding: 15px 30px;
+            font-size: 18px;
+            width: 200px;
+            margin: 10px;
+          }
+
+          .char-btn {
+            width: 80px;
+            height: 80px;
+            padding: 5px;
+            display: inline-block;
+            text-align: center;
+            font-size: 10px;
+            vertical-align: top;
+          }
+
+          .char-btn.selected {
+            background: #00ff00;
+            border: 3px solid #fff;
+          }
+
           .mp-input {
             width: 93%;
             padding: 8px;
@@ -120,7 +183,15 @@
           }
         </style>
 
-        <div id="mp-modal">
+        <!-- Game Mode Selection -->
+        <div id="game-mode-select">
+          <h2>Select Game Mode</h2>
+          <button class="mode-btn" id="btn-online-multiplayer">Online Multiplayer</button>
+          <button class="mode-btn" id="btn-local-2player">Local 2 Player</button>
+        </div>
+
+        <!-- Multiplayer Lobby UI -->
+        <div id="mp-modal" style="display:none;">
           <h2 style="margin-top:0;">Online Matchmaking</h2>
           
           <div id="lobby-menu">
@@ -156,13 +227,34 @@
           <div id="mp-status" style="margin-top:10px; color:#00ffcc; text-align:center;"></div>
         </div>
 
+        <!-- Character Selection -->
+        <div id="char-select-modal" style="display:none;">
+          <h2>Select Your Player</h2>
+          <p id="char-select-status">Waiting for opponent...</p>
+          <div id="char-grid" style="text-align: center; margin: 20px 0;"></div>
+          <button class="mp-btn" id="btn-char-ready" style="display:none;">READY</button>
+        </div>
+
         <script src="/socket.io/socket.io.js"></script>
         <script>
           const socket = io();
           window.socket = socket;
-          window.netState = { isHost: false, isGuest: false };
+          window.netState = { isHost: false, isGuest: false, inGame: false };
           window.latestHostState = null;
           window.remoteP2Input = null;
+          window.selectedChar = null;
+          window.opponentChar = null;
+
+          // GAME MODE SELECTION
+          document.getElementById('btn-online-multiplayer').onclick = () => {
+            document.getElementById('game-mode-select').style.display = 'none';
+            document.getElementById('mp-modal').style.display = 'block';
+          };
+
+          document.getElementById('btn-local-2player').onclick = () => {
+            document.getElementById('game-mode-select').style.display = 'none';
+            startLocal2Player();
+          };
 
           function showMenu() {
             document.getElementById('lobby-menu').style.display = 'block';
@@ -224,14 +316,13 @@
             `;
             
             document.getElementById('btn-force-start').onclick = () => {
-               socket.emit('force_start_match');
+              socket.emit('force_start_match');
             };
           });
 
           socket.on('joined_room', ({ roomId }) => {
             window.netState.isGuest = true;
-            document.getElementById('mp-modal').innerHTML = `<h2>Connected!</h2><p>Waiting for Host to start the match...</p>`;
-            bindGuestInputListeners();
+            document.getElementById('mp-modal').innerHTML = `<h2>Connected to ${roomId}</h2><p>Waiting for Host to start match...</p>`;
           });
 
           socket.on('player_connected', () => {
@@ -239,14 +330,20 @@
             if(startBtn) startBtn.style.display = 'block';
           });
 
-          // LISTEN FOR HOST STATE (guest receives physics data)
+          // LISTEN FOR STATE SYNC (guest receives physics data)
           socket.on('sync_state', (data) => {
             window.latestHostState = data;
           });
 
-          // LISTEN FOR HOST INPUT (guest input relayed back to host)
+          // LISTEN FOR INPUT SYNC (host receives guest input)
           socket.on('sync_input', (data) => {
             window.remoteP2Input = data;
+          });
+
+          // CHARACTER SELECTION SYNC
+          socket.on('opponent_selected_char', (charId) => {
+            window.opponentChar = charId;
+            updateCharSelectUI();
           });
 
           // LISTEN FOR ERRORS
@@ -256,37 +353,132 @@
 
           // LISTEN FOR OPPONENT DISCONNECT
           socket.on('opponent_disconnected', () => {
-            alert('Opponent disconnected!');
-            window.netState.isHost = false;
-            window.netState.isGuest = false;
-            window.latestHostState = null;
-            window.remoteP2Input = null;
-            location.reload();
+            if (window.netState.inGame) {
+              alert('Opponent disconnected!');
+              location.reload();
+            }
           });
 
-          // FORCE START THE MATCH
+          // MATCH ENDED (guest receives end signal)
+          socket.on('match_ended', (data) => {
+            console.log('Match ended:', data);
+            // The game will handle the end screen
+          });
+
+          // START MATCH & CHARACTER SELECTION
           socket.on('jump_to_arena', () => {
             try {
+              document.getElementById('game-mode-select').style.display = 'none';
               document.getElementById('mp-modal').style.display = 'none';
+              document.getElementById('char-select-modal').style.display = 'block';
               
-              const inv = window.GameInventory.instance;
-              if(!inv) throw new Error("Inventory not found. Please ensure 24.js was compiled correctly.");
+              showCharacterSelection();
+            } catch (err) {
+              const log = document.getElementById('debug-log');
+              log.innerHTML += `<div>CRASH in jump_to_arena: ${err.message}</div>`;
+              console.error(err);
+            }
+          });
 
-              inv.gameMode = 4;
+          function showCharacterSelection() {
+            const charGrid = document.getElementById('char-grid');
+            charGrid.innerHTML = '';
+            
+            // Placeholder character IDs (0-5 typically)
+            const characters = [0, 1, 2, 3, 4, 5];
+            
+            characters.forEach(charId => {
+              const btn = document.createElement('button');
+              btn.className = 'char-btn';
+              btn.textContent = `Player ${charId}`;
+              btn.onclick = () => selectCharacter(charId);
+              charGrid.appendChild(btn);
+            });
+            
+            document.getElementById('btn-char-ready').style.display = 'block';
+            updateCharSelectUI();
+          }
+
+          function selectCharacter(charId) {
+            window.selectedChar = charId;
+            // Tell opponent
+            if (window.socket) {
+              window.socket.emit('select_character', charId);
+            }
+            updateCharSelectUI();
+          }
+
+          function updateCharSelectUI() {
+            const btns = document.querySelectorAll('.char-btn');
+            btns.forEach((btn, idx) => {
+              if (idx === window.selectedChar) {
+                btn.classList.add('selected');
+              } else {
+                btn.classList.remove('selected');
+              }
+            });
+            
+            let status = 'You: ' + (window.selectedChar !== null ? 'Ready ✓' : 'Choose');
+            if (window.opponentChar !== null) {
+              status += ' | Opponent: Ready ✓';
+            } else {
+              status += ' | Opponent: Waiting';
+            }
+            document.getElementById('char-select-status').textContent = status;
+          }
+
+          document.getElementById('btn-char-ready').onclick = () => {
+            if (window.selectedChar === null) {
+              alert('Please select a character first!');
+              return;
+            }
+            startMultiplayer();
+          };
+
+          function startMultiplayer() {
+            try {
+              document.getElementById('char-select-modal').style.display = 'none';
+              window.netState.inGame = true;
+
+              const inv = window.GameInventory.instance;
+              if (!inv) throw new Error("Inventory not found");
+
+              inv.gameMode = 4; // PvP mode
               inv.matchData.matchMode = 0;
               inv.matchData.teams = [0, 1];
-              inv.matchData.players = [[0], [0]];
-              inv.matchData.pb = [[false], [false]];
+              inv.matchData.players = [[window.selectedChar], [window.opponentChar || 0]];
+              inv.matchData.pb = [[false], [false]]; // pb = is AI?
               inv.matchData.skills = [[0], [0]];
               inv.matchData.forms = [[0], [0]];
-              
+
               window.Phaser.GAMES[0].state.start("gameplay");
             } catch (err) {
               const log = document.getElementById('debug-log');
               log.innerHTML += `<div>CRASH: ${err.message}</div>`;
               console.error(err);
             }
-          });
+          }
+
+          function startLocal2Player() {
+            try {
+              const inv = window.GameInventory.instance;
+              if (!inv) throw new Error("Inventory not found");
+
+              inv.gameMode = 4; // PvP mode
+              inv.matchData.matchMode = 0;
+              inv.matchData.teams = [0, 1];
+              inv.matchData.players = [[0], [0]]; // Both player 0 for now
+              inv.matchData.pb = [[false], [false]];
+              inv.matchData.skills = [[0], [0]];
+              inv.matchData.forms = [[0], [0]];
+
+              window.Phaser.GAMES[0].state.start("gameplay");
+            } catch (err) {
+              const log = document.getElementById('debug-log');
+              log.innerHTML += `<div>CRASH in local 2P: ${err.message}</div>`;
+              console.error(err);
+            }
+          }
 
           function bindGuestInputListeners() {
             const keyMap = { KeyA: 'left', KeyD: 'right', KeyW: 'jump', KeyS: 'down', KeyB: 'action', KeyV: 'super' };
@@ -295,17 +487,25 @@
             window.addEventListener('keydown', (e) => {
               if (keyMap[e.code]) {
                 keys[keyMap[e.code]] = true;
-                socket.emit('guest_input', keys);
+                if (window.socket) window.socket.emit('guest_input', keys);
               }
             });
 
             window.addEventListener('keyup', (e) => {
               if (keyMap[e.code]) {
                 keys[keyMap[e.code]] = false;
-                socket.emit('guest_input', keys);
+                if (window.socket) window.socket.emit('guest_input', keys);
               }
             });
           }
+
+          // Bind input listeners when guest joins
+          socket.on('joined_room', () => {
+            bindGuestInputListeners();
+          });
+
+          // Initial room list
+          socket.emit('get_public_rooms');
         </script>
     </body>
 </html>

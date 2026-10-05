@@ -51,6 +51,8 @@ var v = function (t) {
     e.slowSignal = new h.Signal();
     e.matchEndSignal = new h.Signal();
     e.menuPauseSignal = new h.Signal();
+    e.lastSyncTime = 0;
+    e.syncInterval = 50; // Sync every 50ms instead of every frame
     f.Signals.MatchProcessorSignal.add(e.processMatchProcessor, e);
     return e;
   }
@@ -156,32 +158,76 @@ var v = function (t) {
       }
     }
   };
+
   e.prototype.update = function (e) {
     // MULTIPLAYER: Guests do NOT run the game loop. Only receive and apply state from host.
     if (window.netState && window.netState.isGuest) {
-      // Apply host's state if available
+      // Apply host's state if available - do this EVERY frame for smooth rendering
       if (window.latestHostState) {
         var s = window.latestHostState;
+        
+        // Sync ball
         if (this.ball && this.ball.body && s.b) {
           this.ball.body.position.setxy(s.b.x, s.b.y);
           this.ball.body.velocity.setxy(s.b.vx, s.b.vy);
           if (this.ball.updateGraphic) this.ball.updateGraphic();
+          // Sync ball state (holding, shooting, etc)
+          if (s.b.state && this.ball.state !== s.b.state) {
+            this.ball.state = s.b.state;
+          }
+          if (s.b.inHand !== undefined && this.ball.inHand !== s.b.inHand) {
+            this.ball.inHand = s.b.inHand;
+          }
         }
+        
+        // Sync players left
         if (this.playersLeft[0] && this.playersLeft[0].body && s.p1) {
           this.playersLeft[0].body.position.setxy(s.p1.x, s.p1.y);
           this.playersLeft[0].body.velocity.setxy(s.p1.vx, s.p1.vy);
           if (this.playersLeft[0].updateGraphic) this.playersLeft[0].updateGraphic();
+          // Sync player holding ball
+          if (s.p1.holding !== undefined && this.playersLeft[0].holding !== s.p1.holding) {
+            this.playersLeft[0].holding = s.p1.holding;
+          }
+          if (s.p1.state && this.playersLeft[0].state !== s.p1.state) {
+            this.playersLeft[0].state = s.p1.state;
+          }
         }
+        
+        // Sync players right
         if (this.playersRight[0] && this.playersRight[0].body && s.p2) {
           this.playersRight[0].body.position.setxy(s.p2.x, s.p2.y);
           this.playersRight[0].body.velocity.setxy(s.p2.vx, s.p2.vy);
           if (this.playersRight[0].updateGraphic) this.playersRight[0].updateGraphic();
+          // Sync player holding ball
+          if (s.p2.holding !== undefined && this.playersRight[0].holding !== s.p2.holding) {
+            this.playersRight[0].holding = s.p2.holding;
+          }
+          if (s.p2.state && this.playersRight[0].state !== s.p2.state) {
+            this.playersRight[0].state = s.p2.state;
+          }
         }
-        // Update score display only if it changed
+        
+        // Update score display (every change)
         if (s.s && (s.s[0] !== c.Inventory.instance.matchData.matchScore[0] || s.s[1] !== c.Inventory.instance.matchData.matchScore[1])) {
-          c.Inventory.instance.matchData.matchScore = s.s;
+          c.Inventory.instance.matchData.matchScore = s.s.slice(); // Copy array
+          this.infoPanel.updateScore(s.s[0], s.s[1]);
           this.timer.updateScore(-1, s.s[0]);
           this.timer.updateScore(1, s.s[1]);
+        }
+        
+        // Sync match time
+        if (s.t !== undefined && this.matchTime !== s.t) {
+          this.matchTime = s.t;
+          this.timer.process(s.t);
+        }
+        
+        // Sync game state (playing, ended, etc)
+        if (s.playing !== undefined && this.isPlaying !== s.playing) {
+          this.isPlaying = s.playing;
+        }
+        if (s.ended !== undefined && this.isEnd !== s.ended) {
+          this.isEnd = s.ended;
         }
       }
       // Guest doesn't run game logic, just renders what the host sent
@@ -227,14 +273,43 @@ var v = function (t) {
       }
     }
 
-    // HOST BROADCAST: Send physics state to the Guest every frame
+    // HOST BROADCAST: Send physics state to the Guest periodically (not every frame to save bandwidth)
     if (window.netState && window.netState.isHost && window.socket) {
-      window.socket.emit("host_state", {
-        b: this.ball && this.ball.body ? { x: this.ball.body.position.x, y: this.ball.body.position.y, vx: this.ball.body.velocity.x, vy: this.ball.body.velocity.y } : null,
-        p1: this.playersLeft[0] && this.playersLeft[0].body ? { x: this.playersLeft[0].body.position.x, y: this.playersLeft[0].body.position.y, vx: this.playersLeft[0].body.velocity.x, vy: this.playersLeft[0].body.velocity.y } : null,
-        p2: this.playersRight[0] && this.playersRight[0].body ? { x: this.playersRight[0].body.position.x, y: this.playersRight[0].body.position.y, vx: this.playersRight[0].body.velocity.x, vy: this.playersRight[0].body.velocity.y } : null,
-        s: c.Inventory.instance.matchData.matchScore
-      });
+      var now = Date.now();
+      if (now - this.lastSyncTime >= this.syncInterval) {
+        this.lastSyncTime = now;
+        
+        window.socket.emit("host_state", {
+          b: this.ball && this.ball.body ? {
+            x: this.ball.body.position.x,
+            y: this.ball.body.position.y,
+            vx: this.ball.body.velocity.x,
+            vy: this.ball.body.velocity.y,
+            state: this.ball.state,
+            inHand: this.ball.inHand
+          } : null,
+          p1: this.playersLeft[0] && this.playersLeft[0].body ? {
+            x: this.playersLeft[0].body.position.x,
+            y: this.playersLeft[0].body.position.y,
+            vx: this.playersLeft[0].body.velocity.x,
+            vy: this.playersLeft[0].body.velocity.y,
+            holding: this.playersLeft[0].holding,
+            state: this.playersLeft[0].state
+          } : null,
+          p2: this.playersRight[0] && this.playersRight[0].body ? {
+            x: this.playersRight[0].body.position.x,
+            y: this.playersRight[0].body.position.y,
+            vx: this.playersRight[0].body.velocity.x,
+            vy: this.playersRight[0].body.velocity.y,
+            holding: this.playersRight[0].holding,
+            state: this.playersRight[0].state
+          } : null,
+          s: c.Inventory.instance.matchData.matchScore,
+          t: this.matchTime,
+          playing: this.isPlaying,
+          ended: this.isEnd
+        });
+      }
     }
   };
 
@@ -269,6 +344,11 @@ var v = function (t) {
       this.messageInfo.show2(e);
     }
     this.deltaEndTime = 0;
+    
+    // MULTIPLAYER: Notify guest that match ended
+    if (window.netState && window.netState.isHost && window.socket) {
+      window.socket.emit("match_ended", { winner: t, isOvertime: this.isOvertime });
+    }
   };
   e.prototype.add = function (e) {
     if (e !== null) {
