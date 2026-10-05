@@ -1,0 +1,34 @@
+exports.__esModule = true;
+var s = function () {
+  function t() {}
+  t.MenuMusic = "24_TrackSnd";
+  t.GameMusic = "24_TrackSnd";
+  t.Click = "20_ButtonSnd";
+  t.button = "20_ButtonSnd";
+  t.b_bounce = "16_B_Bounce";
+  t.m_countdown = "19_M_Countdown";
+  t.m_whistle = "2_M_Whistle";
+  t.shield = "13_P_Shield";
+  t.m_win = "1_M_Win";
+  t.m_lost = "12_M_Lost";
+  t.m_buzzer = "9_M_Buzzer";
+  t.p_swoosh = "5_P_Swoosh";
+  t.p_floorStand = "14_P_FloorStand";
+  t.p_floorRun = "15_P_FloorRun";
+  t.p_dash = "17_P_Dash";
+  t.p_superDash = "18_P_SuperDash";
+  t.p_energy = "6_P_Energy";
+  t.p_megaStart = "11_P_MegaStart";
+  t.m_tribune = "3_M_Tribune";
+  t.p_stunned = "7_P_Stunned";
+  t.b_steel = "8_B_Steel";
+  t.b_basket = "23_B_Basket";
+  t.b_ring = "10_B_Ring";
+  t.b_net = "21_B_NET";
+  t.b_brick = "22_B_Brick";
+  t.p_teleport = "4_P_Teleport";
+  t.preloadList = [];
+  t.list = [t.MenuMusic, t.b_bounce, t.Click, t.m_countdown, t.m_whistle, t.shield, t.m_win, t.m_lost, t.m_buzzer, t.p_swoosh, t.p_floorStand, t.p_floorRun, t.p_dash, t.p_superDash, t.p_energy, t.p_megaStart, t.p_stunned, t.m_tribune, t.b_steel, t.b_basket, t.b_ring, t.b_net, t.b_brick, t.p_teleport];
+  return t;
+}();
+exports.default = s;

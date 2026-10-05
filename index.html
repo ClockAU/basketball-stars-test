@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta http-equiv="x-ua-compatible" content="ie=edge" />
+        <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no" />
+        <link rel="stylesheet" href="assets/css/app.css" type="text/css" />
+        <title>Basketball Stars | 3kh0</title>
+
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    </head>
+    <script src="/js/main.js"></script>
+    <body>
+        <div id="content"></div>
+        <div id="orientation"></div>
+        <div id="loader">Loading ...</div>
+        <script type="text/javascript" src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+        <script type="text/javascript" src="assets/box2dweb/nape.min.js">
+            var nape ="nape.min.js" ;
+        </script>
+        <script type="text/javascript" src="assets/box2dweb/nape-debug-draw.min.js"></script>
+        <script type="text/javascript" src="assets/box2dweb/jquery-3.1.1.min.js"></script>
+        <script type="text/javascript" src="assets/box2dweb/easeljs-0.8.2.combined.js"></script>
+        <script type="text/javascript" src="assets/box2dweb/bluebird.min.js"></script>
+        <script type="text/javascript">
+            var useEvents = typeof Event === "function";
+
+            var myDispatchEvent = function (name) {
+                var event;
+                if (useEvents) {
+                    event = new Event(name);
+                } else {
+                    event = document.createEvent("Event");
+                    event.initEvent(name, true, true);
+                }
+                document.getElementById("content").dispatchEvent(event);
+            };
+
+            window["GD_OPTIONS"] = {
+                gameId: "69d78d071f704fa183d75b4114ae40ec",
+                onEvent: function (event) {
+                    switch (event.name) {
+                        case "SDK_GAME_START":
+                            // advertisement done, resume game logic and unmute audio
+                            myDispatchEvent("SDK_GAME_START");
+                            break;
+                        case "SDK_GAME_PAUSE":
+                            // pause game logic / mute audio
+                            myDispatchEvent("SDK_GAME_PAUSE");
+                            // document.getElementById("content").dispatchEvent(new Event("SDK_GAME_PAUSE"));
+                            break;
+                        case "SDK_GDPR_TRACKING":
+                            // this event is triggered when your user doesn't want to be tracked
+                            console.log("SDK_GDPR_TRACKING");
+                            break;
+                        case "SDK_GDPR_TARGETING":
+                            // this event is triggered when your user doesn't want personalised targeting of ads and such
+                            console.log("SDK_GDPR_TARGETING");
+                            break;
+                        case "SDK_READY":
+                            // this event is triggered when your user doesn't want personalised targeting of ads and such
+                            console.log("SDK_READY");
+                            // gdsdk.openConsole();
+                            break;
+                    }
+                },
+            };
+            (function (d, s, id) {
+                var js,
+                    fjs = d.getElementsByTagName(s)[0];
+                if (d.getElementById(id)) return;
+                js = d.createElement(s);
+                js.id = id;
+                js.src = "assets/main.min.js";
+                fjs.parentNode.insertBefore(js, fjs);
+            })(document, "script", "gamedistribution-jssdk");
+        </script>
+        <script type="text/javascript" src="assets/basketball_legends_2019.min.js"></script>
+
+        <!-- MULTIPLAYER LOBBY UI -->
+        <style>
+          #mp-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #111e2e;
+            color: #fff;
+            padding: 24px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            font-family: Arial, sans-serif;
+            z-index: 10000;
+            width: 320px;
+          }
+          .mp-btn {
+            background: #00ccff;
+            border: none;
+            padding: 8px 14px;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 4px 0;
+            width: 100%;
+          }
+          .mp-input {
+            width: 93%;
+            padding: 8px;
+            margin: 6px 0;
+            background: #0b141f;
+            border: 1px solid #334e68;
+            color: #fff;
+            border-radius: 4px;
+          }
+          .room-card {
+            background: #1b2a3a;
+            padding: 8px;
+            margin: 4px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 4px;
+          }
+        </style>
+
+        <div id="mp-modal">
+          <h2 style="margin-top:0;">Online Matchmaking</h2>
+          
+          <div id="lobby-menu">
+            <button class="mp-btn" id="btn-show-host">Host Game</button>
+            <button class="mp-btn" id="btn-show-private">Join with Key</button>
+            <hr style="border-color:#334e68; margin: 15px 0;">
+            <h4>Public Rooms:</h4>
+            <div id="public-room-list" style="max-height:120px; overflow-y:auto;">
+              <p style="color:#888;">No public games available.</p>
+            </div>
+          </div>
+
+          <!-- Host Setup Panel -->
+          <div id="host-panel" style="display:none;">
+            <h4>Create Room</h4>
+            <label>
+              <input type="checkbox" id="check-private"> Private Room
+            </label>
+            <input type="text" id="host-key" class="mp-input" placeholder="Set Key / Password" style="display:none;">
+            <button class="mp-btn" id="btn-create-room">Start Hosting</button>
+            <button class="mp-btn" style="background:#666;" onclick="showMenu()">Back</button>
+          </div>
+
+          <!-- Private Join Panel -->
+          <div id="private-panel" style="display:none;">
+            <h4>Join Private Game</h4>
+            <input type="text" id="join-room-id" class="mp-input" placeholder="Room Code (e.g. AB12C)">
+            <input type="text" id="join-room-key" class="mp-input" placeholder="Room Key / Password">
+            <button class="mp-btn" id="btn-submit-private">Connect</button>
+            <button class="mp-btn" style="background:#666;" onclick="showMenu()">Back</button>
+          </div>
+
+          <div id="mp-status" style="margin-top:10px; color:#00ffcc; text-align:center;"></div>
+        </div>
+
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+          const socket = io();
+          window.socket = socket;
+          window.netState = { isHost: false, isGuest: false };
+
+          function showMenu() {
+            document.getElementById('lobby-menu').style.display = 'block';
+            document.getElementById('host-panel').style.display = 'none';
+            document.getElementById('private-panel').style.display = 'none';
+          }
+
+          document.getElementById('btn-show-host').onclick = () => {
+            document.getElementById('lobby-menu').style.display = 'none';
+            document.getElementById('host-panel').style.display = 'block';
+          };
+
+          document.getElementById('btn-show-private').onclick = () => {
+            document.getElementById('lobby-menu').style.display = 'none';
+            document.getElementById('private-panel').style.display = 'block';
+          };
+
+          document.getElementById('check-private').onchange = (e) => {
+            document.getElementById('host-key').style.display = e.target.checked ? 'block' : 'none';
+          };
+
+          // Host button action
+          document.getElementById('btn-create-room').onclick = () => {
+            const isPrivate = document.getElementById('check-private').checked;
+            const passkey = document.getElementById('host-key').value;
+            socket.emit('create_room', { isPrivate, passkey });
+          };
+
+          // Join private room action
+          document.getElementById('btn-submit-private').onclick = () => {
+            const roomId = document.getElementById('join-room-id').value;
+            const passkey = document.getElementById('join-room-key').value;
+            socket.emit('join_room', { roomId, passkey });
+          };
+
+          // Render public rooms
+          socket.on('public_rooms_update', (rooms) => {
+            const container = document.getElementById('public-room-list');
+            if (!rooms.length) {
+              container.innerHTML = '<p style="color:#888;">No public games available.</p>';
+              return;
+            }
+            container.innerHTML = '';
+            rooms.forEach((r) => {
+              const card = document.createElement('div');
+              card.className = 'room-card';
+              card.innerHTML = `<span>${r.roomId}</span><button class="mp-btn" style="width:70px; margin:0;" onclick="joinPublic('${r.roomId}')">Join</button>`;
+              container.appendChild(card);
+            });
+          });
+
+          window.joinPublic = (roomId) => {
+            socket.emit('join_room', { roomId, passkey: null });
+          };
+
+          socket.on('room_created', ({ roomId, isPrivate }) => {
+            window.netState.isHost = true;
+            document.getElementById('mp-modal').style.display = 'none';
+            alert(`Room Created!\nCode: ${roomId}` + (isPrivate ? '\n(Private Match)' : ''));
+          });
+
+          socket.on('joined_room', ({ roomId }) => {
+            window.netState.isGuest = true;
+            document.getElementById('mp-modal').style.display = 'none';
+            alert(`Connected to Room: ${roomId}`);
+            bindGuestInputListeners();
+          });
+
+          socket.on('player_connected', () => {
+            alert('Player 2 has joined! Choose "2 PLAYERS" mode in the main menu to begin.');
+          });
+
+          socket.on('join_error', (msg) => alert(msg));
+
+          function bindGuestInputListeners() {
+            const keyMap = { KeyA: 'left', KeyD: 'right', KeyW: 'jump', KeyS: 'down', KeyB: 'action', KeyV: 'super' };
+            const keys = { left: false, right: false, jump: false, down: false, action: false, super: false };
+
+            window.addEventListener('keydown', (e) => {
+              if (keyMap[e.code]) {
+                keys[keyMap[e.code]] = true;
+                socket.emit('guest_input', keys);
+              }
+            });
+
+            window.addEventListener('keyup', (e) => {
+              if (keyMap[e.code]) {
+                keys[keyMap[e.code]] = false;
+                socket.emit('guest_input', keys);
+              }
+            });
+          }
+        </script>
+    </body>
+</html>
