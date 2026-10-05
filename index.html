@@ -161,6 +161,8 @@
           const socket = io();
           window.socket = socket;
           window.netState = { isHost: false, isGuest: false };
+          window.latestHostState = null;
+          window.remoteP2Input = null;
 
           function showMenu() {
             document.getElementById('lobby-menu').style.display = 'block';
@@ -235,6 +237,31 @@
           socket.on('player_connected', () => {
             const startBtn = document.getElementById('btn-force-start');
             if(startBtn) startBtn.style.display = 'block';
+          });
+
+          // LISTEN FOR HOST STATE (guest receives physics data)
+          socket.on('sync_state', (data) => {
+            window.latestHostState = data;
+          });
+
+          // LISTEN FOR HOST INPUT (guest input relayed back to host)
+          socket.on('sync_input', (data) => {
+            window.remoteP2Input = data;
+          });
+
+          // LISTEN FOR ERRORS
+          socket.on('join_error', (msg) => {
+            document.getElementById('mp-status').textContent = 'ERROR: ' + msg;
+          });
+
+          // LISTEN FOR OPPONENT DISCONNECT
+          socket.on('opponent_disconnected', () => {
+            alert('Opponent disconnected!');
+            window.netState.isHost = false;
+            window.netState.isGuest = false;
+            window.latestHostState = null;
+            window.remoteP2Input = null;
+            location.reload();
           });
 
           // FORCE START THE MATCH

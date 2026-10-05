@@ -157,33 +157,39 @@ var v = function (t) {
     }
   };
   e.prototype.update = function (e) {
-    // 1. GUEST SYNC: Force positions/velocities to match Host exactly
-    if (window.netState && window.netState.isGuest && window.latestHostState) {
+    // MULTIPLAYER: Guests do NOT run the game loop. Only receive and apply state from host.
+    if (window.netState && window.netState.isGuest) {
+      // Apply host's state if available
+      if (window.latestHostState) {
         var s = window.latestHostState;
         if (this.ball && this.ball.body && s.b) {
-            this.ball.body.position.setxy(s.b.x, s.b.y);
-            this.ball.body.velocity.setxy(s.b.vx, s.b.vy);
-            this.ball.updateGraphic();
+          this.ball.body.position.setxy(s.b.x, s.b.y);
+          this.ball.body.velocity.setxy(s.b.vx, s.b.vy);
+          if (this.ball.updateGraphic) this.ball.updateGraphic();
         }
         if (this.playersLeft[0] && this.playersLeft[0].body && s.p1) {
-            this.playersLeft[0].body.position.setxy(s.p1.x, s.p1.y);
-            this.playersLeft[0].body.velocity.setxy(s.p1.vx, s.p1.vy);
-            this.playersLeft[0].updateGraphic();
+          this.playersLeft[0].body.position.setxy(s.p1.x, s.p1.y);
+          this.playersLeft[0].body.velocity.setxy(s.p1.vx, s.p1.vy);
+          if (this.playersLeft[0].updateGraphic) this.playersLeft[0].updateGraphic();
         }
         if (this.playersRight[0] && this.playersRight[0].body && s.p2) {
-            this.playersRight[0].body.position.setxy(s.p2.x, s.p2.y);
-            this.playersRight[0].body.velocity.setxy(s.p2.vx, s.p2.vy);
-            this.playersRight[0].updateGraphic();
+          this.playersRight[0].body.position.setxy(s.p2.x, s.p2.y);
+          this.playersRight[0].body.velocity.setxy(s.p2.vx, s.p2.vy);
+          if (this.playersRight[0].updateGraphic) this.playersRight[0].updateGraphic();
         }
-        if (s.s) {
-            c.Inventory.instance.matchData.matchScore = s.s;
-            this.timer.updateScore(-1, s.s[0]);
-            this.timer.updateScore(1, s.s[1]);
+        // Update score display only if it changed
+        if (s.s && (s.s[0] !== c.Inventory.instance.matchData.matchScore[0] || s.s[1] !== c.Inventory.instance.matchData.matchScore[1])) {
+          c.Inventory.instance.matchData.matchScore = s.s;
+          this.timer.updateScore(-1, s.s[0]);
+          this.timer.updateScore(1, s.s[1]);
         }
-        // DELETED EARLY RETURN - Letting Guest execute the rest of the engine loop so the screen renders
+      }
+      // Guest doesn't run game logic, just renders what the host sent
+      return;
     }
 
-    // 2. RUN GAME LOGIC (Both Host and Guest run this so animations tick)
+    // HOST AND OFFLINE: Run the full game loop
+
     if (this.isPaused) {
       if (this.m_tribune) {
         this.m_tribune.volume = 0;
@@ -221,7 +227,7 @@ var v = function (t) {
       }
     }
 
-    // 3. HOST BROADCAST: Send physics state to the Guest
+    // HOST BROADCAST: Send physics state to the Guest every frame
     if (window.netState && window.netState.isHost && window.socket) {
       window.socket.emit("host_state", {
         b: this.ball && this.ball.body ? { x: this.ball.body.position.x, y: this.ball.body.position.y, vx: this.ball.body.velocity.x, vy: this.ball.body.velocity.y } : null,

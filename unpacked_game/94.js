@@ -21,29 +21,50 @@ var s = this && this.__extends || function () {
 exports.__esModule = true;
 var n = require("./14.js");
 var a = require("./49.js");
+
+// MULTIPLAYER: Helper to check if we're the host and should use remote input
+function getRemoteInput() {
+  return window.netState && window.netState.isHost ? (window.remoteP2Input || {}) : null;
+}
+
+// MULTIPLAYER: Helper to check if we're a guest (guest should NOT process any local input)
+function isGuest() {
+  return window.netState && window.netState.isGuest;
+}
+
 var o = function (t) {
   function e(e) {
     return t.call(this, e) || this;
   }
   s(e, t);
   e.prototype.update = function () {
+    // MULTIPLAYER: Guests do NOT process input at all. Physics sync handles movement.
+    if (isGuest()) {
+      this.currentMove = 0;
+      this.currentDash = 0;
+      this.currentJump = false;
+      this.currentAction = false;
+      this.currentSuper = false;
+      this.currentBlockOrPump = false;
+      return;
+    }
+
     this.currentMove = 0;
     this.currentDash = 0;
 
-    // MULTIPLAYER: If hosting, ONLY use network inputs. Strictly block local fallback.
-    if (window.netState && window.netState.isHost) {
-      if (window.remoteP2Input) {
-        var inp = window.remoteP2Input;
-        if (inp.left) this.currentMove--;
-        if (inp.right) this.currentMove++;
-        this.currentJump = !!inp.jump;
-        this.currentAction = !!inp.action;
-        this.currentSuper = !!inp.super;
-        this.currentBlockOrPump = !!inp.down;
-      }
+    // MULTIPLAYER: If hosting, ONLY use network inputs for P2. Strictly block local fallback.
+    var r = getRemoteInput();
+    if (r) {
+      if (r.left) this.currentMove--;
+      if (r.right) this.currentMove++;
+      this.currentJump = !!r.jump;
+      this.currentAction = !!r.action;
+      this.currentSuper = !!r.super;
+      this.currentBlockOrPump = !!r.down;
       return; // Do NOT process offline keys below
     }
 
+    // LOCAL GAME: Process keyboard input normally
     if (n.default.instance.isbtnLeft) {
       if (n.default.instance.isbtnLeftDouble) {
         this.currentDash = -1;
@@ -61,27 +82,42 @@ var o = function (t) {
     this.currentSuper = n.default.instance.isbtnK;
     this.currentBlockOrPump = n.default.instance.isbtnDown;
   };
+
   e.prototype.readyForAction = function () {
-    return !n.default.instance.isbtnL;
+    var r = getRemoteInput();
+    return r ? !r.action : !n.default.instance.isbtnL;
   };
+
   e.prototype.releaseBlockOrPump = function () {
-    return !n.default.instance.isbtnDown;
+    var r = getRemoteInput();
+    return r ? !r.down : !n.default.instance.isbtnDown;
   };
+
   e.prototype.getJump = function () {
-    return n.default.instance.isbtnUp;
+    var r = getRemoteInput();
+    return r ? !!r.jump : n.default.instance.isbtnUp;
   };
+
   e.prototype.readyToJump = function () {
-    return !n.default.instance.isbtnUp;
+    var r = getRemoteInput();
+    return r ? !r.jump : !n.default.instance.isbtnUp;
   };
+
   e.prototype.getShoot = function () {
-    return n.default.instance.isbtnL;
+    var r = getRemoteInput();
+    return r ? !!r.action : n.default.instance.isbtnL;
   };
+
   e.prototype.getTackle = function () {
-    return n.default.instance.isbtnDown;
+    var r = getRemoteInput();
+    return r ? !!r.down : n.default.instance.isbtnDown;
   };
+
   e.prototype.getSuperShot = function () {
-    return n.default.instance.isbtnK;
+    var r = getRemoteInput();
+    return r ? !!r.super : n.default.instance.isbtnK;
   };
+
   return e;
 }(a.PlayerBaseController);
 exports.PlayerController2 = o;

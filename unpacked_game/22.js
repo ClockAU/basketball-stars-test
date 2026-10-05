@@ -113,8 +113,10 @@ var p = function (t) {
     t.int1.castBody.userData.owner.onShieldCollision(e);
   };
   e.prototype.update = function (t) {
-    // MULTIPLAYER: If this is the Guest, DO NOT simulate physics.
-    if (window.netState && window.netState.isGuest) return;
+    // MULTIPLAYER: Only the host runs physics. Guest receives state from host.
+    if (window.netState && window.netState.isGuest) {
+      return;
+    }
     e.space.step(t);
   };
   e.prototype.updateGraphics = function () {

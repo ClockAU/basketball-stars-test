@@ -18,6 +18,7 @@ function getPublicRooms() {
 }
 
 io.on('connection', (socket) => {
+  console.log('Player connected:', socket.id);
   socket.emit('public_rooms_update', getPublicRooms());
 
   socket.on('create_room', ({ isPrivate, passkey, hostName }) => {
@@ -34,6 +35,7 @@ io.on('connection', (socket) => {
     socket.roomId = roomId;
     socket.isHost = true;
 
+    console.log('Room created:', roomId, 'Private:', isPrivate);
     socket.emit('room_created', { roomId, isPrivate });
     io.emit('public_rooms_update', getPublicRooms());
   });
@@ -43,12 +45,15 @@ io.on('connection', (socket) => {
     const room = rooms[id];
 
     if (!room) {
+      console.log('Join failed: Room does not exist:', id);
       return socket.emit('join_error', 'Room does not exist.');
     }
     if (room.guest) {
+      console.log('Join failed: Room is full:', id);
       return socket.emit('join_error', 'Room is already full.');
     }
     if (room.isPrivate && room.passkey !== String(passkey).trim()) {
+      console.log('Join failed: Incorrect key for:', id);
       return socket.emit('join_error', 'Incorrect room key.');
     }
 
@@ -57,34 +62,40 @@ io.on('connection', (socket) => {
     socket.roomId = id;
     socket.isHost = false;
 
+    console.log('Player joined room:', id, 'Guest:', socket.id);
     socket.emit('joined_room', { roomId: id });
     io.to(room.host).emit('player_connected');
     io.emit('public_rooms_update', getPublicRooms());
   });
 
-  // GAMEPLAY RELAYS
+  // GAMEPLAY RELAYS: Host broadcasts physics state to guest
   socket.on('host_state', (data) => {
     if (socket.roomId) {
       socket.to(socket.roomId).emit('sync_state', data);
     }
   });
 
+  // GAMEPLAY RELAYS: Guest sends input to host
   socket.on('guest_input', (data) => {
     if (socket.roomId) {
       socket.to(socket.roomId).emit('sync_input', data);
     }
   });
 
-  // START MATCH EVENT
+  // START MATCH EVENT: Host triggers match start for both players
   socket.on('force_start_match', () => {
     if (socket.roomId) {
+      console.log('Starting match in room:', socket.roomId);
       io.to(socket.roomId).emit('jump_to_arena');
     }
   });
 
+  // HANDLE DISCONNECTION
   socket.on('disconnect', () => {
+    console.log('Player disconnected:', socket.id);
     if (socket.roomId && rooms[socket.roomId]) {
       io.to(socket.roomId).emit('opponent_disconnected');
+      console.log('Deleted room:', socket.roomId);
       delete rooms[socket.roomId];
       io.emit('public_rooms_update', getPublicRooms());
     }
