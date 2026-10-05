@@ -113,6 +113,8 @@ var p = function (t) {
     t.int1.castBody.userData.owner.onShieldCollision(e);
   };
   e.prototype.update = function (t) {
+    // MULTIPLAYER: If this is the Guest, DO NOT simulate physics.
+    if (window.netState && window.netState.isGuest) return;
     e.space.step(t);
   };
   e.prototype.updateGraphics = function () {
@@ -123,7 +125,7 @@ var p = function (t) {
         i = n.graphic;
         i.x = s.position.x;
         i.y = s.position.y;
-        i.rotation = s.rotation % (Math.PI * 2);
+        i.rotation = s.rotation % (2 * Math.PI);
       }
     }
   };

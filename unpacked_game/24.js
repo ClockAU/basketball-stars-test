@@ -26,11 +26,8 @@ var l = function () {
     this.outInfo = "";
     this.timeToShowAdditionalGUI = 1800000;
     this.notLogged = true;
-    if (t._instance !== null) {
-      throw new Error("Signleton: Must be only one Object");
-    }
+    if (t._instance !== null) throw new Error("Signleton: Must be only one Object");
     this.isLocal = true;
-    //!SaveGame.getInstance().useOnlineSave;
     this.matchData = new n.MatchData(this.isLocal);
     this.tournament = new a.TournamentData();
     this.matchData.matchMode = 0;
@@ -70,15 +67,19 @@ var l = function () {
     }
   };
   t.prototype.saveTournament = function () {
-    var t = this.tournament.getValues();
-    var e = this.SAVE;
-    this.save[e] = t;
+    var e = this.tournament.getValues();
+    var i = this.SAVE;
+    this.save[i] = e;
     s.default.getInstance().save();
   };
   t.prototype.getTournament = function () {
-    var t = this.SAVE;
-    var e = this.save[t];
-    return !!e && (this.tournament.setValues(e), true);
+    var e = this.SAVE;
+    var i = this.save[e];
+    if (i) {
+      this.tournament.setValues(i);
+      return true;
+    }
+    return false;
   };
   t.prototype.breakTournament = function () {
     this.clearTournamentData();
@@ -88,8 +89,8 @@ var l = function () {
     this.tournament.resetAll();
   };
   t.prototype.clearTournamentSave = function () {
-    var t = this.SAVE;
-    delete this.save[t];
+    var e = this.SAVE;
+    delete this.save[e];
     s.default.getInstance().save();
   };
   t.prototype.reset = function () {
@@ -107,11 +108,11 @@ var l = function () {
       this.matchScores = o.ScoresCalculator.calcScores(this.matchData.matchScore, this.tournament.state, this.tournament.difficulty, this.tournament.isSecondPlace());
       this.tournament.scores += this.matchScores;
       this.statsMgr.updateScore(this.tournament.scores, this.tournament.mode);
-      var t = this.matchData.matchScore[0];
-      this.tournament.points += t;
-      this.achievsMgr.updateData(7, t);
+      var e = this.matchData.matchScore[0];
+      this.tournament.points += e;
+      this.achievsMgr.updateData(7, e);
       if (this.tournament.difficulty === 1) {
-        this.achievsMgr.updateData(8, t);
+        this.achievsMgr.updateData(8, e);
       }
     }
   };
@@ -122,8 +123,8 @@ var l = function () {
     get: function () {
       return !this.save.hasOwnProperty("firstRun") || this.save.firstRun;
     },
-    set: function (t) {
-      this.save.firstRun = t;
+    set: function (e) {
+      this.save.firstRun = e;
       s.default.getInstance().save();
     },
     enumerable: true,
@@ -133,8 +134,8 @@ var l = function () {
     get: function () {
       return !this.save.hasOwnProperty("firstRun2") || this.save.firstRun2;
     },
-    set: function (t) {
-      this.save.firstRun2 = t;
+    set: function (e) {
+      this.save.firstRun2 = e;
       s.default.getInstance().save();
     },
     enumerable: true,
@@ -176,39 +177,39 @@ var l = function () {
     configurable: true
   });
   t.prototype.nextLeg = function () {
-    var t = "Standings";
+    var e = "Standings";
     this.calcVars();
-    var e = this.tournament.generateResults(this.startId, this.endId, this.isFinalLegs, this.matchData.matchScore);
+    var i = this.tournament.generateResults(this.startId, this.endId, this.isFinalLegs, this.matchData.matchScore);
     this.tournament.state++;
     this.summarizeMatch();
     if (this.tournament.state === 4) {
       this.summarizeTournament(true);
-      t = "Final";
-    } else if (e) {
+      e = "Final";
+    } else if (i) {
       this.tournament.defineOpponent();
       this.saveTournament();
-      t = "Standings";
+      e = "Standings";
     } else {
-      for (var i = this.tournament.state; i < 4; i++) {
+      for (var s = this.tournament.state; s < 4; s++) {
         this.calcVars();
         this.tournament.generateResults(this.startId, this.endId, this.isFinalLegs);
         this.tournament.state++;
       }
       this.summarizeTournament(false);
-      t = "Final";
+      e = "Final";
     }
-    return [e, t];
+    return [i, e];
   };
   t.prototype.calcVars = function () {
     this.isFinalLegs = false;
-    var t = this.tournament.state;
-    if (t === 0) {
+    var e = this.tournament.state;
+    if (e === 0) {
       this.startId = 0;
       this.endId = 8;
-    } else if (t === 1) {
+    } else if (e === 1) {
       this.startId = 8;
       this.endId = 12;
-    } else if (t === 2) {
+    } else if (e === 2) {
       this.startId = 12;
       this.endId = 14;
       this.isFinalLegs = true;
@@ -218,11 +219,11 @@ var l = function () {
       this.isFinalLegs = true;
     }
   };
-  t.prototype.summarizeTournament = function (t) {
-    var e = this.tournament.getPlace();
-    if (t && e < 4) {
-      this.achievsMgr.updateData(14 + this.tournament.mode * 3 + e);
-      if (e === 1) {
+  t.prototype.summarizeTournament = function (e) {
+    var i = this.tournament.getPlace();
+    if (e && i < 4) {
+      this.achievsMgr.updateData(14 + this.tournament.mode * 3 + i);
+      if (i === 1) {
         if (this.tournament.team === 17) {
           this.achievsMgr.updateData(11);
         }
@@ -243,9 +244,10 @@ var l = function () {
     this.matchData.finishMatch(this.gameMode);
   };
   t.prototype.getTitleFrame = function () {
-    var t = this.matchData.whoWins() === -1;
-    var e;
-    return e = this.gameMode === 4 ? this.matchData.matchMode === 2 ? t ? 1 : 2 : t ? 3 : 4 : t ? 1 : 2;
+    var e = this.matchData.whoWins() === -1;
+    var i;
+    i = this.gameMode === 4 ? this.matchData.matchMode === 2 ? e ? 1 : 2 : e ? 3 : 4 : e ? 1 : 2;
+    return i;
   };
   t.prototype.isPvP = function () {
     return this.gameMode === 4 && this.matchData.matchMode < 2;
@@ -264,18 +266,18 @@ var l = function () {
     if (this.isLocal && this.notLogged) {
       this.localGamesCount++;
     }
-    var t = Date.now();
-    if (this.losesCount >= 3 && (this.prevShowForum === 0 || t - this.prevShowForum >= this.timeToShowAdditionalGUI)) {
-      this.prevShowForum = t;
+    var e = Date.now();
+    if (this.losesCount >= 3 && (this.prevShowForum === 0 || e - this.prevShowForum >= this.timeToShowAdditionalGUI)) {
+      this.prevShowForum = e;
       this.losesCount = 0;
       return 1;
-    } else if (this.localGamesCount >= 3 && (this.prevShowRegister === 0 || t - this.prevShowRegister >= this.timeToShowAdditionalGUI)) {
-      this.prevShowRegister = t;
+    }
+    if (this.localGamesCount >= 3 && (this.prevShowRegister === 0 || e - this.prevShowRegister >= this.timeToShowAdditionalGUI)) {
+      this.prevShowRegister = e;
       this.localGamesCount = 0;
       return 2;
-    } else {
-      return 0;
     }
+    return 0;
   };
   t.prototype.getAchievsArray = function () {
     return this.achievsMgr.getValuesForRead();
@@ -294,3 +296,4 @@ var l = function () {
   return t;
 }();
 exports.Inventory = l;
+window.GameInventory = l;
