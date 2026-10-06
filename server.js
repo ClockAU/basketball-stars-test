@@ -1,131 +1,114 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, { cors: { origin: "*" } });
+const io = require('socket.io')(http, { cors: { origin: '*' } });
 
 app.use(express.static(__dirname));
 
 const rooms = {};
 
-function getPublicRooms() {
-  const list = [];
-  for (const [id, r] of Object.entries(rooms)) {
-    if (!r.isPrivate && !r.guest) {
-      list.push({ roomId: id, hostName: r.hostName });
-    }
-  }
-  return list;
+function publicRooms() {
+  return Object.entries(rooms)
+    .filter(([, r]) => !r.isPrivate && !r.guest)
+    .map(([id, r]) => ({ roomId: id, hostName: r.hostName }));
+}
+const broadcastRooms = () => io.emit('public_rooms_update', publicRooms());
+
+function roomOf(socket) {
+  return socket.roomId ? rooms[socket.roomId] : null;
 }
 
 io.on('connection', (socket) => {
-  console.log('Player connected:', socket.id);
-  socket.emit('public_rooms_update', getPublicRooms());
+  socket.emit('public_rooms_update', publicRooms());
+  socket.on('get_public_rooms', () => socket.emit('public_rooms_update', publicRooms()));
 
-  socket.on('get_public_rooms', () => {
-    socket.emit('public_rooms_update', getPublicRooms());
-  });
-
-  socket.on('create_room', ({ isPrivate, passkey, hostName }) => {
-    const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
+  socket.on('create_room', ({ isPrivate, passkey } = {}) => {
+    let roomId;
+    do { roomId = Math.random().toString(36).substring(2, 7).toUpperCase(); } while (rooms[roomId]);
     rooms[roomId] = {
       host: socket.id,
       guest: null,
-      hostName: hostName || 'Player 1',
+      hostName: 'Player 1',
       isPrivate: !!isPrivate,
-      passkey: isPrivate ? String(passkey).trim() : null,
-      hostChar: null,
-      guestChar: null
+      passkey: isPrivate ? String(passkey || '').trim() : null,
+      rematch: { host: false, guest: false }
     };
-
     socket.join(roomId);
     socket.roomId = roomId;
-    socket.isHost = true;
-
-    console.log('Room created:', roomId, 'Private:', isPrivate);
-    socket.emit('room_created', { roomId, isPrivate });
-    io.emit('public_rooms_update', getPublicRooms());
+    socket.emit('room_created', { roomId, isPrivate: !!isPrivate });
+    broadcastRooms();
   });
 
-  socket.on('join_room', ({ roomId, passkey }) => {
-    const id = roomId.trim().toUpperCase();
+  socket.on('join_room', ({ roomId, passkey } = {}) => {
+    const id = String(roomId || '').trim().toUpperCase();
     const room = rooms[id];
-
-    if (!room) {
-      console.log('Join failed: Room does not exist:', id);
-      return socket.emit('join_error', 'Room does not exist.');
-    }
-    if (room.guest) {
-      console.log('Join failed: Room is full:', id);
-      return socket.emit('join_error', 'Room is already full.');
-    }
-    if (room.isPrivate && room.passkey !== String(passkey).trim()) {
-      console.log('Join failed: Incorrect key for:', id);
+    if (!room) return socket.emit('join_error', 'Room does not exist.');
+    if (room.guest) return socket.emit('join_error', 'Room is already full.');
+    if (room.isPrivate && room.passkey !== String(passkey || '').trim()) {
       return socket.emit('join_error', 'Incorrect room key.');
     }
-
     room.guest = socket.id;
     socket.join(id);
     socket.roomId = id;
-    socket.isHost = false;
-
-    console.log('Player joined room:', id, 'Guest:', socket.id);
     socket.emit('joined_room', { roomId: id });
     io.to(room.host).emit('player_connected');
-    io.emit('public_rooms_update', getPublicRooms());
+    broadcastRooms();
   });
 
-  // CHARACTER SELECTION: Relay character choice to opponent
-  socket.on('select_character', (charId) => {
-    if (socket.roomId && rooms[socket.roomId]) {
-      const room = rooms[socket.roomId];
-      if (socket.id === room.host) {
-        room.hostChar = charId;
-      } else {
-        room.guestChar = charId;
-      }
-      // Tell opponent
-      socket.to(socket.roomId).emit('opponent_selected_char', charId);
-      console.log('Character selected in', socket.roomId, ':', charId);
+  // host leaves the lobby -> native character select for both clients
+  socket.on('start_select', () => {
+    const room = roomOf(socket);
+    if (room && room.host === socket.id && room.guest) io.to(socket.roomId).emit('enter_select');
+  });
+
+  // each player edits only their own side in the native selector; relay it
+  socket.on('pick', (v) => {
+    if (socket.roomId) socket.to(socket.roomId).emit('peer_pick', v);
+  });
+
+  // host presses PLAY with the final picks
+  socket.on('start_match', (payload) => {
+    const room = roomOf(socket);
+    if (room && room.host === socket.id) {
+      room.rematch = { host: false, guest: false };
+      io.to(socket.roomId).emit('net_start', payload);
     }
   });
 
-  // GAMEPLAY RELAYS: Host broadcasts physics state to guest
-  socket.on('host_state', (data) => {
-    if (socket.roomId) {
-      socket.to(socket.roomId).emit('sync_state', data);
+  // gameplay relays
+  socket.on('snap', (d) => {
+    const room = roomOf(socket);
+    if (room && room.host === socket.id) socket.to(socket.roomId).volatile.emit('snap', d);
+  });
+  socket.on('evt', (d) => {
+    const room = roomOf(socket);
+    if (room && room.host === socket.id) socket.to(socket.roomId).emit('evt', d);
+  });
+  socket.on('g_input', (d) => {
+    const room = roomOf(socket);
+    if (room && room.guest === socket.id) io.to(room.host).emit('g_input', d);
+  });
+
+  // rematch only starts once both players asked for it
+  socket.on('rematch_req', () => {
+    const room = roomOf(socket);
+    if (!room) return;
+    if (room.host === socket.id) room.rematch.host = true;
+    else if (room.guest === socket.id) room.rematch.guest = true;
+    if (room.rematch.host && room.rematch.guest) {
+      room.rematch = { host: false, guest: false };
+      io.to(socket.roomId).emit('net_rematch');
+    } else {
+      socket.to(socket.roomId).emit('peer_wants_rematch');
     }
   });
 
-  // GAMEPLAY RELAYS: Guest sends input to host
-  socket.on('guest_input', (data) => {
-    if (socket.roomId) {
-      socket.to(socket.roomId).emit('sync_input', data);
-    }
-  });
-
-  // MATCH END: Relay end state to guest
-  socket.on('match_ended', (data) => {
-    if (socket.roomId) {
-      socket.to(socket.roomId).emit('match_ended', data);
-    }
-  });
-
-  // START MATCH EVENT: Host triggers match start for both players
-  socket.on('force_start_match', () => {
-    if (socket.roomId) {
-      console.log('Starting match in room:', socket.roomId);
-      io.to(socket.roomId).emit('jump_to_arena');
-    }
-  });
-
-  // HANDLE DISCONNECTION
   socket.on('disconnect', () => {
-    console.log('Player disconnected:', socket.id);
-    if (socket.roomId && rooms[socket.roomId]) {
+    const room = roomOf(socket);
+    if (room) {
       io.to(socket.roomId).emit('opponent_disconnected');
-      console.log('Deleted room:', socket.roomId);
       delete rooms[socket.roomId];
-      io.emit('public_rooms_update', getPublicRooms());
+      broadcastRooms();
     }
   });
 });

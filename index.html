@@ -8,24 +8,20 @@
         <title>Basketball Stars | 3kh0</title>
 
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-        <style>
-          body { margin: 0; padding: 0; }
-          #content { width: 100%; height: 100%; overflow: hidden; }
-        </style>
     </head>
     <script src="/js/main.js"></script>
     <body>
         <div id="content"></div>
         <div id="orientation"></div>
         <div id="loader">Loading ...</div>
-        
+
         <!-- ERROR LOGGING CONTAINER -->
-        <div id="debug-log" style="position:fixed; bottom:10px; left:10px; color:#ff3333; background:rgba(0,0,0,0.8); z-index:99999; font-family:monospace; font-size:12px; pointer-events:none; padding:5px; border-radius:4px; max-width:400px; max-height:200px; overflow-y:auto;"></div>
-        
+        <div id="debug-log" style="position:fixed; bottom:10px; left:10px; color:#ff3333; background:rgba(0,0,0,0.8); z-index:99999; font-family:monospace; font-size:12px; pointer-events:none; padding:5px; border-radius:4px; display:none;"></div>
+
         <script>
-            // Capture errors and display them on the bottom left
             window.addEventListener('error', (event) => {
                 const log = document.getElementById('debug-log');
+                log.style.display = 'block';
                 log.innerHTML += `<div>ERROR: ${event.message}</div>`;
             });
         </script>
@@ -71,441 +67,231 @@
                 if (d.getElementById(id)) return;
                 js = d.createElement(s);
                 js.id = id;
+                js.charset = "utf-8";
                 js.src = "assets/main.min.js";
                 fjs.parentNode.insertBefore(js, fjs);
             })(document, "script", "gamedistribution-jssdk");
         </script>
-        <script type="text/javascript" src="assets/basketball_legends_2019.min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="assets/basketball_legends_2019.min.js"></script>
 
-        <!-- MULTIPLAYER & TWO-PLAYER UI -->
+        <!-- ===== ONLINE MULTIPLAYER OVERLAYS (only shown from the 2 PLAYERS button) ===== -->
         <style>
-          #game-mode-select {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #111e2e;
-            color: #fff;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-            font-family: Arial, sans-serif;
-            z-index: 10000;
-            text-align: center;
-          }
-
-          #mp-modal {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #111e2e;
-            color: #fff;
-            padding: 24px;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-            font-family: Arial, sans-serif;
-            z-index: 10000;
-            width: 320px;
-            max-height: 80vh;
-            overflow-y: auto;
-          }
-
-          #char-select-modal {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #111e2e;
-            color: #fff;
-            padding: 24px;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-            font-family: Arial, sans-serif;
-            z-index: 10000;
-            width: 90%;
-            max-width: 500px;
-            max-height: 80vh;
-            overflow-y: auto;
-          }
-
-          .mp-btn, .mode-btn, .char-btn {
-            background: #00ccff;
-            border: none;
-            padding: 10px 16px;
-            color: #000;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 4px;
-            margin: 6px;
-            font-size: 14px;
-          }
-
-          .mode-btn {
-            padding: 15px 30px;
-            font-size: 18px;
-            width: 200px;
-            margin: 10px;
-          }
-
-          .char-btn {
-            width: 80px;
-            height: 80px;
-            padding: 5px;
-            display: inline-block;
-            text-align: center;
-            font-size: 10px;
-            vertical-align: top;
-          }
-
-          .char-btn.selected {
-            background: #00ff00;
-            border: 3px solid #fff;
-          }
-
-          .mp-input {
-            width: 93%;
-            padding: 8px;
-            margin: 6px 0;
-            background: #0b141f;
-            border: 1px solid #334e68;
-            color: #fff;
-            border-radius: 4px;
-          }
-          .room-card {
-            background: #1b2a3a;
-            padding: 8px;
-            margin: 4px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-radius: 4px;
-          }
+          .net-panel { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#111e2e; color:#fff;
+            padding:22px; border-radius:10px; box-shadow:0 0 24px rgba(0,0,0,.85); font-family:Arial,sans-serif; z-index:10000;
+            width:320px; max-width:90vw; max-height:85vh; overflow-y:auto; display:none; text-align:center; }
+          .net-panel h2 { margin:0 0 14px; font-size:20px; }
+          .net-btn { display:block; width:100%; background:#00ccff; border:none; padding:10px 14px; color:#000; font-weight:bold;
+            cursor:pointer; border-radius:4px; margin:8px 0; font-size:15px; }
+          .net-btn.grey { background:#667; color:#fff; }
+          .net-btn.green { background:#2ee66b; }
+          .net-input { width:93%; padding:8px; margin:6px 0; background:#0b141f; border:1px solid #334e68; color:#fff; border-radius:4px; }
+          .net-room { background:#1b2a3a; padding:8px; margin:4px 0; display:flex; justify-content:space-between; align-items:center; border-radius:4px; }
+          #net-banner { position:fixed; top:6px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.75); color:#fff;
+            font-family:Arial,sans-serif; font-size:13px; padding:6px 12px; border-radius:6px; z-index:9000; display:none; pointer-events:none; }
+          #net-toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.85); color:#fff;
+            font-family:Arial,sans-serif; font-size:14px; padding:8px 14px; border-radius:6px; z-index:10001; display:none; }
         </style>
 
-        <!-- Game Mode Selection -->
-        <div id="game-mode-select">
-          <h2>Select Game Mode</h2>
-          <button class="mode-btn" id="btn-online-multiplayer">Online Multiplayer</button>
-          <button class="mode-btn" id="btn-local-2player">Local 2 Player</button>
+        <div id="net-chooser" class="net-panel">
+          <h2>2 PLAYERS</h2>
+          <button class="net-btn" id="net-local">Local (same keyboard)</button>
+          <button class="net-btn green" id="net-online">Online Multiplayer</button>
+          <button class="net-btn grey" id="net-chooser-cancel">Cancel</button>
         </div>
 
-        <!-- Multiplayer Lobby UI -->
-        <div id="mp-modal" style="display:none;">
-          <h2 style="margin-top:0;">Online Matchmaking</h2>
-          
-          <div id="lobby-menu">
-            <button class="mp-btn" id="btn-show-host">Host Game</button>
-            <button class="mp-btn" id="btn-show-private">Join with Key</button>
-            <hr style="border-color:#334e68; margin: 15px 0;">
-            <h4>Public Rooms:</h4>
-            <div id="public-room-list" style="max-height:120px; overflow-y:auto;">
-              <p style="color:#888;">No public games available.</p>
-            </div>
+        <div id="net-lobby" class="net-panel">
+          <h2>Online Matchmaking</h2>
+          <div id="net-menu">
+            <button class="net-btn" id="net-show-host">Host Game</button>
+            <button class="net-btn" id="net-show-join">Join with Code</button>
+            <div style="text-align:left;margin-top:12px;font-weight:bold;">Public Rooms</div>
+            <div id="net-rooms" style="max-height:130px;overflow-y:auto;"></div>
+            <button class="net-btn grey" id="net-lobby-close">Back</button>
           </div>
-
-          <!-- Host Setup Panel -->
-          <div id="host-panel" style="display:none;">
-            <h4>Create Room</h4>
-            <label>
-              <input type="checkbox" id="check-private"> Private Room
-            </label>
-            <input type="text" id="host-key" class="mp-input" placeholder="Set Key / Password" style="display:none;">
-            <button class="mp-btn" id="btn-create-room">Start Hosting</button>
-            <button class="mp-btn" style="background:#666;" onclick="showMenu()">Back</button>
+          <div id="net-host" style="display:none;">
+            <label><input type="checkbox" id="net-private"> Private room</label>
+            <input type="text" id="net-key" class="net-input" placeholder="Password" style="display:none;">
+            <button class="net-btn" id="net-create">Create Room</button>
+            <button class="net-btn grey" id="net-host-back">Back</button>
           </div>
-
-          <!-- Private Join Panel -->
-          <div id="private-panel" style="display:none;">
-            <h4>Join Private Game</h4>
-            <input type="text" id="join-room-id" class="mp-input" placeholder="Room Code (e.g. AB12C)">
-            <input type="text" id="join-room-key" class="mp-input" placeholder="Room Key / Password">
-            <button class="mp-btn" id="btn-submit-private">Connect</button>
-            <button class="mp-btn" style="background:#666;" onclick="showMenu()">Back</button>
+          <div id="net-join" style="display:none;">
+            <input type="text" id="net-join-id" class="net-input" placeholder="Room code (e.g. AB12C)">
+            <input type="text" id="net-join-key" class="net-input" placeholder="Password (private rooms)">
+            <button class="net-btn" id="net-join-go">Connect</button>
+            <button class="net-btn grey" id="net-join-back">Back</button>
           </div>
-
-          <div id="mp-status" style="margin-top:10px; color:#00ffcc; text-align:center;"></div>
+          <div id="net-wait" style="display:none;">
+            <div id="net-wait-text" style="margin:8px 0;"></div>
+            <button class="net-btn green" id="net-start" style="display:none;">NEXT: PICK PLAYERS</button>
+            <button class="net-btn grey" id="net-wait-leave">Leave</button>
+          </div>
+          <div id="net-status" style="margin-top:8px;color:#00ffcc;min-height:18px;"></div>
         </div>
 
-        <!-- Character Selection -->
-        <div id="char-select-modal" style="display:none;">
-          <h2>Select Your Player</h2>
-          <p id="char-select-status">Waiting for opponent...</p>
-          <div id="char-grid" style="text-align: center; margin: 20px 0;"></div>
-          <button class="mp-btn" id="btn-char-ready" style="display:none;">READY</button>
-        </div>
+        <div id="net-banner"></div>
+        <div id="net-toast"></div>
 
         <script src="/socket.io/socket.io.js"></script>
         <script>
-          const socket = io();
+        (function () {
+          var socket = io();
           window.socket = socket;
-          window.netState = { isHost: false, isGuest: false, inGame: false };
+          var ns = window.netState = { online: false, isHost: false, isGuest: false, mySide: 0, inGame: false };
           window.latestHostState = null;
           window.remoteP2Input = null;
-          window.selectedChar = null;
-          window.opponentChar = null;
+          window.netEvtQueue = [];
 
-          // GAME MODE SELECTION
-          document.getElementById('btn-online-multiplayer').onclick = () => {
-            document.getElementById('game-mode-select').style.display = 'none';
-            document.getElementById('mp-modal').style.display = 'block';
-          };
+          var $ = function (id) { return document.getElementById(id); };
+          var role = null, enterCb = null, rematchAsked = false;
 
-          document.getElementById('btn-local-2player').onclick = () => {
-            document.getElementById('game-mode-select').style.display = 'none';
-            startLocal2Player();
-          };
-
-          function showMenu() {
-            document.getElementById('lobby-menu').style.display = 'block';
-            document.getElementById('host-panel').style.display = 'none';
-            document.getElementById('private-panel').style.display = 'none';
+          function showEl(id, on) { $(id).style.display = on ? 'block' : 'none'; }
+          function toast(msg, ms) {
+            var t = $('net-toast'); t.textContent = msg; t.style.display = 'block';
+            clearTimeout(toast._t); toast._t = setTimeout(function () { t.style.display = 'none'; }, ms || 2500);
           }
+          function banner(msg) { var b = $('net-banner'); if (msg) { b.textContent = msg; b.style.display = 'block'; } else { b.style.display = 'none'; } }
+          function lobbyPane(name) {
+            ['net-menu', 'net-host', 'net-join', 'net-wait'].forEach(function (id) { showEl(id, id === name); });
+          }
+          function inv() { return window.GameInventory.instance; }
 
-          document.getElementById('btn-show-host').onclick = () => {
-            document.getElementById('lobby-menu').style.display = 'none';
-            document.getElementById('host-panel').style.display = 'block';
-          };
-
-          document.getElementById('btn-show-private').onclick = () => {
-            document.getElementById('lobby-menu').style.display = 'none';
-            document.getElementById('private-panel').style.display = 'block';
-          };
-
-          document.getElementById('check-private').onchange = (e) => {
-            document.getElementById('host-key').style.display = e.target.checked ? 'block' : 'none';
-          };
-
-          document.getElementById('btn-create-room').onclick = () => {
-            const isPrivate = document.getElementById('check-private').checked;
-            const passkey = document.getElementById('host-key').value;
-            socket.emit('create_room', { isPrivate, passkey });
-          };
-
-          document.getElementById('btn-submit-private').onclick = () => {
-            const roomId = document.getElementById('join-room-id').value;
-            const passkey = document.getElementById('join-room-key').value;
-            socket.emit('join_room', { roomId, passkey });
-          };
-
-          socket.on('public_rooms_update', (rooms) => {
-            const container = document.getElementById('public-room-list');
-            if (!rooms.length) {
-              container.innerHTML = '<p style="color:#888;">No public games available.</p>';
-              return;
+          /* ---------- public API used by the patched game bundle ---------- */
+          window.NetUI = {
+            choose2P: function (cb) {
+              showEl('net-chooser', true);
+              $('net-local').onclick = function () { showEl('net-chooser', false); cb('local'); };
+              $('net-online').onclick = function () { showEl('net-chooser', false); cb('online'); };
+              $('net-chooser-cancel').onclick = function () { showEl('net-chooser', false); };
+            },
+            openLobby: function (cb) {
+              enterCb = cb; role = null;
+              $('net-status').textContent = '';
+              lobbyPane('net-menu'); showEl('net-lobby', true);
+              socket.emit('get_public_rooms');
+            },
+            leave: function () { try { socket.disconnect(); } catch (e) {} location.reload(); },
+            rematch: function () {
+              if (rematchAsked) return;
+              rematchAsked = true; socket.emit('rematch_req'); toast('Waiting for opponent…', 4000);
             }
-            container.innerHTML = '';
-            rooms.forEach((r) => {
-              const card = document.createElement('div');
-              card.className = 'room-card';
-              card.innerHTML = `<span>${r.roomId}</span><button class="mp-btn" style="width:70px; margin:0;" onclick="joinPublic('${r.roomId}')">Join</button>`;
-              container.appendChild(card);
+          };
+          window.NetSync = { send: function (k, d) { socket.emit('evt', { k: k, d: d }); } };
+
+          window.NetSel = {
+            sel: null, last: {}, pending: {},
+            canEdit: function (id) { return !ns.online || id === ns.mySide; },
+            changed: function (id) {
+              if (!ns.online || id !== ns.mySide) return;
+              var md = inv().matchData;
+              var v = { id: id, team: md.teams[id], ch: md.players[id][0] };
+              var key = v.team + ':' + v.ch;
+              if (this.last[id] === key) return;
+              this.last[id] = key;
+              socket.emit('pick', v);
+            },
+            apply: function (v) {
+              var st = this.sel;
+              var sp = st && (v.id === 0 ? st.selectPlayer : st.selectPlayer2);
+              if (!sp) { this.pending[v.id] = v; return; }
+              inv().matchData.players[v.id][0] = v.ch;
+              sp.__remote = true;
+              try { sp.emblem = v.team; sp.updateClub(); } finally { sp.__remote = false; }
+            },
+            onSelectReady: function (state) {
+              if (!ns.online) return;
+              this.sel = state;
+              banner('ONLINE – you are Player ' + (ns.mySide + 1) + (ns.mySide === 0 ? ' (left)' : ' (right)') +
+                     '. Pick your own team & player. ' + (ns.isHost ? 'Press PLAY when ready.' : 'Waiting for the host to press PLAY.'));
+              var self = this;
+              Object.keys(this.pending).forEach(function (k) { self.apply(self.pending[k]); });
+              this.pending = {};
+              this.last = {};
+              this.changed(ns.mySide);
+            },
+            hostStart: function () {
+              var md = inv().matchData;
+              socket.emit('start_match', { teams: md.teams.slice(), players: [[md.players[0][0]], [md.players[1][0]]] });
+            }
+          };
+
+          /* ---------- lobby wiring ---------- */
+          $('net-show-host').onclick = function () { lobbyPane('net-host'); };
+          $('net-show-join').onclick = function () { lobbyPane('net-join'); };
+          $('net-host-back').onclick = $('net-join-back').onclick = function () { lobbyPane('net-menu'); };
+          $('net-lobby-close').onclick = function () { showEl('net-lobby', false); };
+          $('net-wait-leave').onclick = function () { window.NetUI.leave(); };
+          $('net-private').onchange = function (e) { $('net-key').style.display = e.target.checked ? 'block' : 'none'; };
+          $('net-create').onclick = function () {
+            socket.emit('create_room', { isPrivate: $('net-private').checked, passkey: $('net-key').value });
+          };
+          $('net-join-go').onclick = function () {
+            socket.emit('join_room', { roomId: $('net-join-id').value, passkey: $('net-join-key').value });
+          };
+          $('net-start').onclick = function () { socket.emit('start_select'); };
+          window.joinPublic = function (id) { socket.emit('join_room', { roomId: id, passkey: null }); };
+
+          socket.on('public_rooms_update', function (rooms) {
+            var box = $('net-rooms'); box.innerHTML = '';
+            if (!rooms.length) { box.innerHTML = '<p style="color:#888;">No public games available.</p>'; return; }
+            rooms.forEach(function (r) {
+              var d = document.createElement('div'); d.className = 'net-room';
+              d.innerHTML = '<span>' + r.roomId + '</span><button class="net-btn" style="width:70px;margin:0;padding:6px;" onclick="joinPublic(\'' + r.roomId + '\')">Join</button>';
+              box.appendChild(d);
             });
           });
+          socket.on('room_created', function (d) {
+            role = 'host'; lobbyPane('net-wait');
+            $('net-wait-text').innerHTML = 'Room code: <b style="font-size:22px">' + d.roomId + '</b><br>Waiting for Player 2…';
+            $('net-start').style.display = 'none';
+          });
+          socket.on('joined_room', function (d) {
+            role = 'guest'; lobbyPane('net-wait');
+            $('net-wait-text').textContent = 'Connected to ' + d.roomId + '. Waiting for the host…';
+            $('net-start').style.display = 'none';
+          });
+          socket.on('player_connected', function () {
+            $('net-wait-text').innerHTML += '<br><span style="color:#2ee66b">Player 2 connected!</span>';
+            $('net-start').style.display = 'block';
+          });
+          socket.on('join_error', function (m) { $('net-status').textContent = m; });
 
-          window.joinPublic = (roomId) => {
-            socket.emit('join_room', { roomId, passkey: null });
-          };
-
-          socket.on('room_created', ({ roomId, isPrivate }) => {
-            window.netState.isHost = true;
-            document.getElementById('mp-modal').innerHTML = `
-              <h2>Room: ${roomId}</h2>
-              <p>Waiting for Player 2...</p>
-              <button class="mp-btn" id="btn-force-start" style="display:none; background:#0f0; margin-top:15px;">START MATCH</button>
-            `;
-            
-            document.getElementById('btn-force-start').onclick = () => {
-              socket.emit('force_start_match');
-            };
+          socket.on('enter_select', function () {
+            showEl('net-lobby', false);
+            ns.online = true; ns.isHost = role === 'host'; ns.isGuest = role === 'guest';
+            ns.mySide = ns.isHost ? 0 : 1; ns.inGame = false;
+            window.latestHostState = null; window.remoteP2Input = null; window.netEvtQueue.length = 0;
+            var cb = enterCb; enterCb = null;
+            if (cb) cb();   // runs the game's own 2-player flow -> native selector
           });
 
-          socket.on('joined_room', ({ roomId }) => {
-            window.netState.isGuest = true;
-            document.getElementById('mp-modal').innerHTML = `<h2>Connected to ${roomId}</h2><p>Waiting for Host to start match...</p>`;
+          /* ---------- selector + match start ---------- */
+          socket.on('peer_pick', function (v) { window.NetSel.apply(v); });
+          socket.on('net_start', function (payload) {
+            window.latestHostState = null; window.remoteP2Input = null; window.netEvtQueue.length = 0;
+            rematchAsked = false; banner(null);
+            var st = window.NetSel.sel || window.Phaser.GAMES[0].state.getCurrentState();
+            st.netStart(payload);
           });
 
-          socket.on('player_connected', () => {
-            const startBtn = document.getElementById('btn-force-start');
-            if(startBtn) startBtn.style.display = 'block';
+          /* ---------- gameplay relays ---------- */
+          socket.on('snap', function (s) { s.rt = Date.now(); window.latestHostState = s; });
+          socket.on('evt', function (e) {
+            var q = window.netEvtQueue; q.push(e); if (q.length > 300) q.shift();
           });
+          socket.on('g_input', function (d) { window.remoteP2Input = d; });
 
-          // LISTEN FOR STATE SYNC (guest receives physics data)
-          socket.on('sync_state', (data) => {
-            window.latestHostState = data;
+          /* ---------- rematch / disconnect ---------- */
+          socket.on('peer_wants_rematch', function () { toast('Opponent wants a rematch – press RESTART to accept', 4000); });
+          socket.on('net_rematch', function () {
+            window.latestHostState = null; window.remoteP2Input = null; window.netEvtQueue.length = 0;
+            rematchAsked = false;
+            window.Phaser.GAMES[0].state.getCurrentState().netRematch();
           });
-
-          // LISTEN FOR INPUT SYNC (host receives guest input)
-          socket.on('sync_input', (data) => {
-            window.remoteP2Input = data;
+          socket.on('opponent_disconnected', function () {
+            if (ns.online) { alert('Opponent disconnected.'); location.reload(); }
+            else { lobbyPane('net-menu'); $('net-status').textContent = 'Opponent left the room.'; role = null; }
           });
-
-          // CHARACTER SELECTION SYNC
-          socket.on('opponent_selected_char', (charId) => {
-            window.opponentChar = charId;
-            updateCharSelectUI();
-          });
-
-          // LISTEN FOR ERRORS
-          socket.on('join_error', (msg) => {
-            document.getElementById('mp-status').textContent = 'ERROR: ' + msg;
-          });
-
-          // LISTEN FOR OPPONENT DISCONNECT
-          socket.on('opponent_disconnected', () => {
-            if (window.netState.inGame) {
-              alert('Opponent disconnected!');
-              location.reload();
-            }
-          });
-
-          // MATCH ENDED (guest receives end signal)
-          socket.on('match_ended', (data) => {
-            console.log('Match ended:', data);
-            // The game will handle the end screen
-          });
-
-          // START MATCH & CHARACTER SELECTION
-          socket.on('jump_to_arena', () => {
-            try {
-              document.getElementById('game-mode-select').style.display = 'none';
-              document.getElementById('mp-modal').style.display = 'none';
-              document.getElementById('char-select-modal').style.display = 'block';
-              
-              showCharacterSelection();
-            } catch (err) {
-              const log = document.getElementById('debug-log');
-              log.innerHTML += `<div>CRASH in jump_to_arena: ${err.message}</div>`;
-              console.error(err);
-            }
-          });
-
-          function showCharacterSelection() {
-            const charGrid = document.getElementById('char-grid');
-            charGrid.innerHTML = '';
-            
-            // Placeholder character IDs (0-5 typically)
-            const characters = [0, 1, 2, 3, 4, 5];
-            
-            characters.forEach(charId => {
-              const btn = document.createElement('button');
-              btn.className = 'char-btn';
-              btn.textContent = `Player ${charId}`;
-              btn.onclick = () => selectCharacter(charId);
-              charGrid.appendChild(btn);
-            });
-            
-            document.getElementById('btn-char-ready').style.display = 'block';
-            updateCharSelectUI();
-          }
-
-          function selectCharacter(charId) {
-            window.selectedChar = charId;
-            // Tell opponent
-            if (window.socket) {
-              window.socket.emit('select_character', charId);
-            }
-            updateCharSelectUI();
-          }
-
-          function updateCharSelectUI() {
-            const btns = document.querySelectorAll('.char-btn');
-            btns.forEach((btn, idx) => {
-              if (idx === window.selectedChar) {
-                btn.classList.add('selected');
-              } else {
-                btn.classList.remove('selected');
-              }
-            });
-            
-            let status = 'You: ' + (window.selectedChar !== null ? 'Ready ✓' : 'Choose');
-            if (window.opponentChar !== null) {
-              status += ' | Opponent: Ready ✓';
-            } else {
-              status += ' | Opponent: Waiting';
-            }
-            document.getElementById('char-select-status').textContent = status;
-          }
-
-          document.getElementById('btn-char-ready').onclick = () => {
-            if (window.selectedChar === null) {
-              alert('Please select a character first!');
-              return;
-            }
-            startMultiplayer();
-          };
-
-          function startMultiplayer() {
-            try {
-              document.getElementById('char-select-modal').style.display = 'none';
-              window.netState.inGame = true;
-
-              const inv = window.GameInventory.instance;
-              if (!inv) throw new Error("Inventory not found");
-
-              inv.gameMode = 4; // PvP mode
-              inv.matchData.matchMode = 0;
-              inv.matchData.teams = [0, 1];
-              inv.matchData.players = [[window.selectedChar], [window.opponentChar || 0]];
-              inv.matchData.pb = [[false], [false]]; // pb = is AI?
-              inv.matchData.skills = [[0], [0]];
-              inv.matchData.forms = [[0], [0]];
-
-              window.Phaser.GAMES[0].state.start("gameplay");
-            } catch (err) {
-              const log = document.getElementById('debug-log');
-              log.innerHTML += `<div>CRASH: ${err.message}</div>`;
-              console.error(err);
-            }
-          }
-
-          function startLocal2Player() {
-            try {
-              const inv = window.GameInventory.instance;
-              if (!inv) throw new Error("Inventory not found");
-
-              inv.gameMode = 4; // PvP mode
-              inv.matchData.matchMode = 0;
-              inv.matchData.teams = [0, 1];
-              inv.matchData.players = [[0], [0]]; // Both player 0 for now
-              inv.matchData.pb = [[false], [false]];
-              inv.matchData.skills = [[0], [0]];
-              inv.matchData.forms = [[0], [0]];
-
-              window.Phaser.GAMES[0].state.start("gameplay");
-            } catch (err) {
-              const log = document.getElementById('debug-log');
-              log.innerHTML += `<div>CRASH in local 2P: ${err.message}</div>`;
-              console.error(err);
-            }
-          }
-
-          function bindGuestInputListeners() {
-            const keyMap = { KeyA: 'left', KeyD: 'right', KeyW: 'jump', KeyS: 'down', KeyB: 'action', KeyV: 'super' };
-            const keys = { left: false, right: false, jump: false, down: false, action: false, super: false };
-
-            window.addEventListener('keydown', (e) => {
-              if (keyMap[e.code]) {
-                keys[keyMap[e.code]] = true;
-                if (window.socket) window.socket.emit('guest_input', keys);
-              }
-            });
-
-            window.addEventListener('keyup', (e) => {
-              if (keyMap[e.code]) {
-                keys[keyMap[e.code]] = false;
-                if (window.socket) window.socket.emit('guest_input', keys);
-              }
-            });
-          }
-
-          // Bind input listeners when guest joins
-          socket.on('joined_room', () => {
-            bindGuestInputListeners();
-          });
-
-          // Initial room list
-          socket.emit('get_public_rooms');
+        })();
         </script>
     </body>
 </html>
