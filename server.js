@@ -1,11 +1,17 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, { cors: { origin: '*' } });
+const io = require('socket.io')(http, {
+  cors: { origin: '*' },
+  perMessageDeflate: false   // no compression delay on the tiny, frequent game packets
+});
 
 app.use(express.static(__dirname));
 
 const rooms = {};
+
+const cleanName = (n) =>
+  String(n || '').replace(/[^\w .!\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 12) || 'Player';
 
 function publicRooms() {
   return Object.entries(rooms)
@@ -13,22 +19,20 @@ function publicRooms() {
     .map(([id, r]) => ({ roomId: id, hostName: r.hostName }));
 }
 const broadcastRooms = () => io.emit('public_rooms_update', publicRooms());
-
-function roomOf(socket) {
-  return socket.roomId ? rooms[socket.roomId] : null;
-}
+const roomOf = (socket) => (socket.roomId ? rooms[socket.roomId] : null);
 
 io.on('connection', (socket) => {
   socket.emit('public_rooms_update', publicRooms());
   socket.on('get_public_rooms', () => socket.emit('public_rooms_update', publicRooms()));
 
-  socket.on('create_room', ({ isPrivate, passkey } = {}) => {
+  socket.on('create_room', ({ isPrivate, passkey, name } = {}) => {
     let roomId;
     do { roomId = Math.random().toString(36).substring(2, 7).toUpperCase(); } while (rooms[roomId]);
     rooms[roomId] = {
       host: socket.id,
       guest: null,
-      hostName: 'Player 1',
+      hostName: cleanName(name),
+      guestName: null,
       isPrivate: !!isPrivate,
       passkey: isPrivate ? String(passkey || '').trim() : null,
       rematch: { host: false, guest: false }
@@ -39,7 +43,7 @@ io.on('connection', (socket) => {
     broadcastRooms();
   });
 
-  socket.on('join_room', ({ roomId, passkey } = {}) => {
+  socket.on('join_room', ({ roomId, passkey, name } = {}) => {
     const id = String(roomId || '').trim().toUpperCase();
     const room = rooms[id];
     if (!room) return socket.emit('join_error', 'Room does not exist.');
@@ -48,17 +52,20 @@ io.on('connection', (socket) => {
       return socket.emit('join_error', 'Incorrect room key.');
     }
     room.guest = socket.id;
+    room.guestName = cleanName(name);
     socket.join(id);
     socket.roomId = id;
-    socket.emit('joined_room', { roomId: id });
-    io.to(room.host).emit('player_connected');
+    socket.emit('joined_room', { roomId: id, hostName: room.hostName });
+    io.to(room.host).emit('player_connected', { name: room.guestName });
     broadcastRooms();
   });
 
-  // host leaves the lobby -> native character select for both clients
+  // host leaves the lobby -> native character select for both clients (names travel with it)
   socket.on('start_select', () => {
     const room = roomOf(socket);
-    if (room && room.host === socket.id && room.guest) io.to(socket.roomId).emit('enter_select');
+    if (room && room.host === socket.id && room.guest) {
+      io.to(socket.roomId).emit('enter_select', { names: [room.hostName, room.guestName] });
+    }
   });
 
   // each player edits only their own side in the native selector; relay it
@@ -88,6 +95,10 @@ io.on('connection', (socket) => {
     const room = roomOf(socket);
     if (room && room.guest === socket.id) io.to(room.host).emit('g_input', d);
   });
+
+  // player <-> player round-trip measurement (shown as the in-game ping)
+  socket.on('rtt_ping', (d) => { if (socket.roomId) socket.to(socket.roomId).emit('rtt_ping', d); });
+  socket.on('rtt_pong', (d) => { if (socket.roomId) socket.to(socket.roomId).emit('rtt_pong', d); });
 
   // rematch only starts once both players asked for it
   socket.on('rematch_req', () => {

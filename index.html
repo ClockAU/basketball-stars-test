@@ -15,8 +15,8 @@
         <div id="orientation"></div>
         <div id="loader">Loading ...</div>
 
-        <!-- ERROR LOGGING CONTAINER -->
-        <div id="debug-log" style="position:fixed; bottom:10px; left:10px; color:#ff3333; background:rgba(0,0,0,0.8); z-index:99999; font-family:monospace; font-size:12px; pointer-events:none; padding:5px; border-radius:4px; display:none;"></div>
+        <!-- ERROR LOGGING CONTAINER (only appears when something throws) -->
+        <div id="debug-log" style="position:fixed; bottom:30px; left:10px; color:#ff3333; background:rgba(0,0,0,0.8); z-index:99999; font-family:monospace; font-size:12px; pointer-events:none; padding:5px; border-radius:4px; display:none;"></div>
 
         <script>
             window.addEventListener('error', (event) => {
@@ -74,22 +74,32 @@
         </script>
         <script type="text/javascript" charset="utf-8" src="assets/basketball_legends_2019.min.js"></script>
 
-        <!-- ===== ONLINE MULTIPLAYER OVERLAYS (only shown from the 2 PLAYERS button) ===== -->
+        <!-- ===== ONLINE MULTIPLAYER + CONTROLS OVERLAYS ===== -->
         <style>
           .net-panel { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#111e2e; color:#fff;
             padding:22px; border-radius:10px; box-shadow:0 0 24px rgba(0,0,0,.85); font-family:Arial,sans-serif; z-index:10000;
-            width:320px; max-width:90vw; max-height:85vh; overflow-y:auto; display:none; text-align:center; }
+            width:340px; max-width:92vw; max-height:88vh; overflow-y:auto; display:none; text-align:center; box-sizing:border-box; }
           .net-panel h2 { margin:0 0 14px; font-size:20px; }
           .net-btn { display:block; width:100%; background:#00ccff; border:none; padding:10px 14px; color:#000; font-weight:bold;
             cursor:pointer; border-radius:4px; margin:8px 0; font-size:15px; }
           .net-btn.grey { background:#667; color:#fff; }
           .net-btn.green { background:#2ee66b; }
-          .net-input { width:93%; padding:8px; margin:6px 0; background:#0b141f; border:1px solid #334e68; color:#fff; border-radius:4px; }
-          .net-room { background:#1b2a3a; padding:8px; margin:4px 0; display:flex; justify-content:space-between; align-items:center; border-radius:4px; }
+          .net-input { width:100%; box-sizing:border-box; padding:8px; margin:6px 0; background:#0b141f; border:1px solid #334e68; color:#fff; border-radius:4px; }
+          .net-room { background:#1b2a3a; padding:8px; margin:4px 0; display:flex; justify-content:space-between; align-items:center; border-radius:4px; text-align:left; }
+          .net-keyrow { display:flex; align-items:center; gap:6px; margin:6px 0; text-align:left; font-size:14px; }
+          .net-keyrow > span:first-child { flex:1.2; }
+          .net-keyval { flex:1.4; color:#8fe3ff; font-weight:bold; }
+          .net-mini { background:#00ccff; border:none; color:#000; font-weight:bold; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:12px; }
+          .net-mini.grey { background:#667; color:#fff; }
           #net-banner { position:fixed; top:6px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.75); color:#fff;
-            font-family:Arial,sans-serif; font-size:13px; padding:6px 12px; border-radius:6px; z-index:9000; display:none; pointer-events:none; }
+            font-family:Arial,sans-serif; font-size:13px; padding:6px 12px; border-radius:6px; z-index:9000; display:none; pointer-events:none; max-width:90vw; text-align:center; }
           #net-toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.85); color:#fff;
-            font-family:Arial,sans-serif; font-size:14px; padding:8px 14px; border-radius:6px; z-index:10001; display:none; }
+            font-family:Arial,sans-serif; font-size:14px; padding:8px 14px; border-radius:6px; z-index:10001; display:none; max-width:90vw; text-align:center; }
+          #net-ping { position:fixed; left:8px; bottom:6px; font-family:monospace; font-size:12px; background:rgba(0,0,0,.55);
+            padding:2px 6px; border-radius:4px; z-index:9000; display:none; pointer-events:none; }
+          #net-gear { position:fixed; right:8px; bottom:8px; z-index:9000; background:rgba(17,30,46,.75); color:#cfe8ff; border:1px solid #334e68;
+            font-family:Arial,sans-serif; font-size:12px; padding:5px 9px; border-radius:6px; cursor:pointer; opacity:.7; }
+          #net-gear:hover { opacity:1; }
         </style>
 
         <div id="net-chooser" class="net-panel">
@@ -101,6 +111,8 @@
 
         <div id="net-lobby" class="net-panel">
           <h2>Online Matchmaking</h2>
+          <div style="text-align:left;font-size:13px;color:#9fb6cc;">Username</div>
+          <input type="text" id="net-name" class="net-input" maxlength="12" placeholder="Your name (max 12 characters)" autocomplete="off">
           <div id="net-menu">
             <button class="net-btn" id="net-show-host">Host Game</button>
             <button class="net-btn" id="net-show-join">Join with Code</button>
@@ -128,20 +140,40 @@
           <div id="net-status" style="margin-top:8px;color:#00ffcc;min-height:18px;"></div>
         </div>
 
+        <div id="net-settings" class="net-panel">
+          <h2>Controls</h2>
+          <div style="font-size:12px;color:#9fb6cc;margin-bottom:8px;">Rebind any action. Applies to online and single-player games; local 2-player always uses the default keys.</div>
+          <div id="net-keys"></div>
+          <label style="display:block;margin:12px 0 4px;font-size:13px;text-align:left;">
+            <input type="checkbox" id="net-predict"> Smooth my movement online (client-side prediction)
+          </label>
+          <button class="net-btn grey" id="net-keys-reset">Reset all keys to default</button>
+          <button class="net-btn" id="net-settings-close">Close</button>
+        </div>
+
+        <button id="net-gear">⚙ Controls</button>
         <div id="net-banner"></div>
         <div id="net-toast"></div>
+        <div id="net-ping"></div>
 
         <script src="/socket.io/socket.io.js"></script>
         <script>
         (function () {
           var socket = io();
           window.socket = socket;
-          var ns = window.netState = { online: false, isHost: false, isGuest: false, mySide: 0, inGame: false };
+          var ns = window.netState = { online: false, isHost: false, isGuest: false, mySide: 0, inGame: false, names: ['Player 1', 'Player 2'] };
           window.latestHostState = null;
           window.remoteP2Input = null;
           window.netEvtQueue = [];
+          window.NetPing = { rtt: 0 };
 
           var $ = function (id) { return document.getElementById(id); };
+          var store = {
+            get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+            set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+          };
+          window.NetOpts = { predict: store.get('bs_predict') !== '0' };
+
           var role = null, enterCb = null, rematchAsked = false;
 
           function showEl(id, on) { $(id).style.display = on ? 'block' : 'none'; }
@@ -155,7 +187,132 @@
           }
           function inv() { return window.GameInventory.instance; }
 
-          /* ---------- public API used by the patched game bundle ---------- */
+          /* ================= USERNAME ================= */
+          function cleanName(n) { return String(n || '').replace(/[^\w .!\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 12); }
+          $('net-name').value = cleanName(store.get('bs_name') || '');
+          function requireName() {
+            var n = cleanName($('net-name').value);
+            if (!n) { $('net-status').textContent = 'Enter a username first.'; $('net-name').focus(); return null; }
+            $('net-name').value = n; store.set('bs_name', n);
+            return n;
+          }
+
+          /* ================= CUSTOM KEYBINDS =================
+             The game polls fixed physical keys. Instead of touching every controller, the
+             keyboard layer is wrapped: a custom key is translated into the game's own default
+             keys for that action, and the replaced default keys are switched off. */
+          var CANON = { left: [65, 37], right: [68, 39], jump: [87, 38], down: [83, 40], hit: [66, 76, 88], ability: [86, 75, 90] };
+          var ORDER = ['left', 'right', 'jump', 'down', 'hit', 'ability'];
+          var TITLES = { left: 'Move left', right: 'Move right', jump: 'Jump', down: 'Block / pump', hit: 'Hit (shoot / steal)', ability: 'Ability (super)' };
+          var DEFAULTS = { left: 'A / ←', right: 'D / →', jump: 'W / ↑', down: 'S / ↓', hit: 'B / L / X', ability: 'V / K / Z' };
+          var binds = {};
+          try { binds = JSON.parse(store.get('bs_keys') || '{}') || {}; } catch (e) { binds = {}; }
+          Object.keys(binds).forEach(function (a) {
+            if (!CANON[a] || !binds[a] || typeof binds[a].kc !== 'number') delete binds[a];
+          });
+          function saveKeys() { store.set('bs_keys', JSON.stringify(binds)); }
+
+          function shouldRemap() {
+            if (ns.online) return true;
+            try { var i = window.GameInventory && window.GameInventory.instance; return !(i && i.gameMode === 4); } catch (e) { return true; }
+          }
+          var KB = window.KB = {
+            capturing: false,
+            targets: function (kc) {
+              if (!shouldRemap()) return null;
+              var any = false, a;
+              for (a in binds) { any = true; if (binds[a].kc === kc) return CANON[a]; }
+              if (!any) return null;
+              for (a in binds) { if (CANON[a].indexOf(kc) >= 0) return []; }   // default key of a rebound action -> off
+              return null;
+            },
+            abilityLabel: function () { return binds.ability ? String(binds.ability.label).slice(0, 5) : null; }
+          };
+
+          try {
+            var KP = window.Phaser.Keyboard.prototype;
+            if (!KP.__kbWrapped) {
+              KP.__kbWrapped = true;
+              var proxy = function (ev, kc) {
+                return {
+                  keyCode: kc, which: kc, charCode: ev.charCode, altKey: ev.altKey, ctrlKey: ev.ctrlKey,
+                  shiftKey: ev.shiftKey, metaKey: ev.metaKey, type: ev.type, target: ev.target,
+                  timeStamp: ev.timeStamp, repeat: ev.repeat,
+                  preventDefault: function () { ev.preventDefault(); },
+                  stopPropagation: function () { ev.stopPropagation(); }
+                };
+              };
+              var wrap = function (orig) {
+                return function (ev) {
+                  var t = ev && ev.target;
+                  // typing in the username / room boxes must not reach the game
+                  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+                  if (KB.capturing) return;
+                  var codes = KB.targets(ev.keyCode);
+                  if (codes === null) return orig.call(this, ev);
+                  if (ev.type === 'keydown') ev.preventDefault();
+                  for (var i = 0; i < codes.length; i++) orig.call(this, codes[i] === ev.keyCode ? ev : proxy(ev, codes[i]));
+                };
+              };
+              KP.processKeyDown = wrap(KP.processKeyDown);
+              KP.processKeyUp = wrap(KP.processKeyUp);
+            }
+          } catch (e) { console.warn('keybind layer unavailable', e); }
+
+          function labelFor(ev) {
+            var map = { ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', ' ': 'SPACE', Enter: 'ENTER', Tab: 'TAB', Backspace: 'BKSP' };
+            var k = ev.key;
+            if (map[k]) return map[k];
+            if (k && k.length === 1) return k.toUpperCase();
+            return String(ev.code || k || '?').replace(/^(Key|Digit)/, '').toUpperCase();
+          }
+          function validate(action, kc) {
+            var a;
+            for (a in binds) if (a !== action && binds[a].kc === kc) return 'That key is already used for "' + TITLES[a] + '".';
+            for (a in CANON) if (a !== action && !binds[a] && CANON[a].indexOf(kc) >= 0) return 'That key is the default for "' + TITLES[a] + '" – rebind that action first.';
+            return null;
+          }
+          function startCapture(action, cell) {
+            if (KB.capturing) return;
+            KB.capturing = true;
+            cell.textContent = 'Press a key… (Esc cancels)';
+            var onKey = function (ev) {
+              ev.preventDefault(); ev.stopImmediatePropagation();
+              if (/^(Shift|Control|Alt|Meta|CapsLock)$/.test(ev.key)) return;   // modifiers alone don't count
+              window.removeEventListener('keydown', onKey, true);
+              KB.capturing = false;
+              if (ev.key === 'Escape') { renderKeys(); return; }
+              var err = validate(action, ev.keyCode);
+              if (err) { toast(err, 3500); renderKeys(); return; }
+              binds[action] = { kc: ev.keyCode, label: labelFor(ev) };
+              saveKeys(); renderKeys();
+            };
+            window.addEventListener('keydown', onKey, true);
+          }
+          function renderKeys() {
+            var box = $('net-keys'); box.innerHTML = '';
+            ORDER.forEach(function (a) {
+              var row = document.createElement('div'); row.className = 'net-keyrow';
+              var nm = document.createElement('span'); nm.textContent = TITLES[a];
+              var val = document.createElement('span'); val.className = 'net-keyval';
+              val.textContent = binds[a] ? binds[a].label : 'Default (' + DEFAULTS[a] + ')';
+              var ch = document.createElement('button'); ch.className = 'net-mini'; ch.textContent = 'Change';
+              ch.onclick = function () { startCapture(a, val); };
+              var rs = document.createElement('button'); rs.className = 'net-mini grey'; rs.textContent = 'Reset';
+              rs.onclick = function () { delete binds[a]; saveKeys(); renderKeys(); };
+              row.appendChild(nm); row.appendChild(val); row.appendChild(ch); row.appendChild(rs);
+              box.appendChild(row);
+            });
+          }
+          renderKeys();
+          $('net-predict').checked = window.NetOpts.predict;
+          $('net-predict').onchange = function (e) { window.NetOpts.predict = e.target.checked; store.set('bs_predict', e.target.checked ? '1' : '0'); };
+          $('net-keys-reset').onclick = function () { binds = {}; saveKeys(); renderKeys(); };
+          $('net-gear').onclick = function () { renderKeys(); showEl('net-settings', true); };
+          $('net-settings-close').onclick = function () { if (!KB.capturing) showEl('net-settings', false); };
+          if ('ontouchstart' in window) $('net-gear').style.display = 'none';   // touch devices use on-screen buttons
+
+          /* ================= public API used by the patched game bundle ================= */
           window.NetUI = {
             choose2P: function (cb) {
               showEl('net-chooser', true);
@@ -200,8 +357,9 @@
             onSelectReady: function (state) {
               if (!ns.online) return;
               this.sel = state;
-              banner('ONLINE – you are Player ' + (ns.mySide + 1) + (ns.mySide === 0 ? ' (left)' : ' (right)') +
-                     '. Pick your own team & player. ' + (ns.isHost ? 'Press PLAY when ready.' : 'Waiting for the host to press PLAY.'));
+              var me = ns.names[ns.mySide], other = ns.names[1 - ns.mySide];
+              banner('ONLINE – you are ' + me + ' (' + (ns.mySide === 0 ? 'left' : 'right') + ') vs ' + other + '. Pick your own team & player. ' +
+                     (ns.isHost ? 'Press PLAY when ready.' : 'Waiting for the host to press PLAY.'));
               var self = this;
               Object.keys(this.pending).forEach(function (k) { self.apply(self.pending[k]); });
               this.pending = {};
@@ -214,7 +372,7 @@
             }
           };
 
-          /* ---------- lobby wiring ---------- */
+          /* ================= lobby wiring ================= */
           $('net-show-host').onclick = function () { lobbyPane('net-host'); };
           $('net-show-join').onclick = function () { lobbyPane('net-join'); };
           $('net-host-back').onclick = $('net-join-back').onclick = function () { lobbyPane('net-menu'); };
@@ -222,21 +380,28 @@
           $('net-wait-leave').onclick = function () { window.NetUI.leave(); };
           $('net-private').onchange = function (e) { $('net-key').style.display = e.target.checked ? 'block' : 'none'; };
           $('net-create').onclick = function () {
-            socket.emit('create_room', { isPrivate: $('net-private').checked, passkey: $('net-key').value });
+            var n = requireName(); if (!n) return;
+            socket.emit('create_room', { isPrivate: $('net-private').checked, passkey: $('net-key').value, name: n });
           };
           $('net-join-go').onclick = function () {
-            socket.emit('join_room', { roomId: $('net-join-id').value, passkey: $('net-join-key').value });
+            var n = requireName(); if (!n) return;
+            socket.emit('join_room', { roomId: $('net-join-id').value, passkey: $('net-join-key').value, name: n });
           };
           $('net-start').onclick = function () { socket.emit('start_select'); };
-          window.joinPublic = function (id) { socket.emit('join_room', { roomId: id, passkey: null }); };
+          window.joinPublic = function (id) {
+            var n = requireName(); if (!n) return;
+            socket.emit('join_room', { roomId: id, passkey: null, name: n });
+          };
 
           socket.on('public_rooms_update', function (rooms) {
             var box = $('net-rooms'); box.innerHTML = '';
             if (!rooms.length) { box.innerHTML = '<p style="color:#888;">No public games available.</p>'; return; }
             rooms.forEach(function (r) {
               var d = document.createElement('div'); d.className = 'net-room';
-              d.innerHTML = '<span>' + r.roomId + '</span><button class="net-btn" style="width:70px;margin:0;padding:6px;" onclick="joinPublic(\'' + r.roomId + '\')">Join</button>';
-              box.appendChild(d);
+              var sp = document.createElement('span'); sp.textContent = r.hostName + ' · ' + r.roomId;
+              var b = document.createElement('button'); b.className = 'net-btn'; b.style.cssText = 'width:70px;margin:0;padding:6px;'; b.textContent = 'Join';
+              b.onclick = function () { window.joinPublic(r.roomId); };
+              d.appendChild(sp); d.appendChild(b); box.appendChild(d);
             });
           });
           socket.on('room_created', function (d) {
@@ -246,25 +411,29 @@
           });
           socket.on('joined_room', function (d) {
             role = 'guest'; lobbyPane('net-wait');
-            $('net-wait-text').textContent = 'Connected to ' + d.roomId + '. Waiting for the host…';
+            $('net-wait-text').textContent = 'Connected to ' + d.hostName + ' (' + d.roomId + '). Waiting for the host…';
             $('net-start').style.display = 'none';
           });
-          socket.on('player_connected', function () {
-            $('net-wait-text').innerHTML += '<br><span style="color:#2ee66b">Player 2 connected!</span>';
+          socket.on('player_connected', function (d) {
+            var t = $('net-wait-text'); t.textContent = '';
+            var b = document.createElement('span'); b.style.color = '#2ee66b';
+            b.textContent = (d && d.name ? d.name : 'Player 2') + ' joined!';
+            t.appendChild(b);
             $('net-start').style.display = 'block';
           });
           socket.on('join_error', function (m) { $('net-status').textContent = m; });
 
-          socket.on('enter_select', function () {
+          socket.on('enter_select', function (d) {
             showEl('net-lobby', false);
             ns.online = true; ns.isHost = role === 'host'; ns.isGuest = role === 'guest';
             ns.mySide = ns.isHost ? 0 : 1; ns.inGame = false;
+            ns.names = (d && d.names) || ['Player 1', 'Player 2'];
             window.latestHostState = null; window.remoteP2Input = null; window.netEvtQueue.length = 0;
             var cb = enterCb; enterCb = null;
             if (cb) cb();   // runs the game's own 2-player flow -> native selector
           });
 
-          /* ---------- selector + match start ---------- */
+          /* ================= selector + match start ================= */
           socket.on('peer_pick', function (v) { window.NetSel.apply(v); });
           socket.on('net_start', function (payload) {
             window.latestHostState = null; window.remoteP2Input = null; window.netEvtQueue.length = 0;
@@ -273,14 +442,31 @@
             st.netStart(payload);
           });
 
-          /* ---------- gameplay relays ---------- */
+          /* ================= gameplay relays ================= */
           socket.on('snap', function (s) { s.rt = Date.now(); window.latestHostState = s; });
           socket.on('evt', function (e) {
             var q = window.netEvtQueue; q.push(e); if (q.length > 300) q.shift();
           });
           socket.on('g_input', function (d) { window.remoteP2Input = d; });
 
-          /* ---------- rematch / disconnect ---------- */
+          /* ================= ping meter (player <-> player round trip) ================= */
+          socket.on('rtt_ping', function (d) { socket.emit('rtt_pong', d); });
+          socket.on('rtt_pong', function (d) {
+            var r = performance.now() - d.t;
+            window.NetPing.rtt = window.NetPing.rtt ? window.NetPing.rtt * 0.7 + r * 0.3 : r;
+          });
+          setInterval(function () {
+            var el = $('net-ping');
+            if (!ns.online) { el.style.display = 'none'; return; }
+            socket.emit('rtt_ping', { t: performance.now() });
+            var r = window.NetPing.rtt;
+            var tr = (socket.io && socket.io.engine && socket.io.engine.transport) ? socket.io.engine.transport.name : '?';
+            el.style.display = 'block';
+            el.textContent = (r ? 'ping ' + Math.round(r) + ' ms' : 'ping …') + ' · ' + (tr === 'polling' ? 'polling (slow: WebSocket blocked?)' : tr);
+            el.style.color = !r ? '#ccc' : r < 80 ? '#6dff8a' : r < 160 ? '#ffd54a' : '#ff6b6b';
+          }, 1000);
+
+          /* ================= rematch / disconnect ================= */
           socket.on('peer_wants_rematch', function () { toast('Opponent wants a rematch – press RESTART to accept', 4000); });
           socket.on('net_rematch', function () {
             window.latestHostState = null; window.remoteP2Input = null; window.netEvtQueue.length = 0;
