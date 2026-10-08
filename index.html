@@ -68,11 +68,11 @@
                 js = d.createElement(s);
                 js.id = id;
                 js.charset = "utf-8";
-                js.src = "assets/main.min.js";
+                js.src = "assets/main.min.js?v=3";
                 fjs.parentNode.insertBefore(js, fjs);
             })(document, "script", "gamedistribution-jssdk");
         </script>
-        <script type="text/javascript" charset="utf-8" src="assets/basketball_legends_2019.min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="assets/basketball_legends_2019.min.js?v=3"></script>
 
         <!-- ===== ONLINE MULTIPLAYER + CONTROLS OVERLAYS ===== -->
         <style>
@@ -332,7 +332,101 @@
               rematchAsked = true; socket.emit('rematch_req'); toast('Waiting for opponent…', 4000);
             }
           };
-          window.NetSync = { send: function (k, d) { socket.emit('evt', { k: k, d: d }); } };
+          /* ================= TRANSPORT: direct peer-to-peer (WebRTC) with relay fallback =================
+             Game packets go straight between the two browsers when possible (no detour through the
+             server). Snapshots use an unordered/unreliable channel (like UDP: a late packet is dropped
+             instead of delaying the next one); inputs and events use a reliable channel. If P2P cannot
+             be established (strict NAT / school network) everything silently stays on the relay. */
+          var ICE = { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }, { urls: 'stun:stun.cloudflare.com:3478' }] };
+          var P = { pc: null, u: null, r: null, pendingIce: [] };
+          function p2pReady() { return !!(P.u && P.r && P.u.readyState === 'open' && P.r.readyState === 'open'); }
+          function dcOpen(ch) { return !!(ch && ch.readyState === 'open'); }
+          function dcSend(ch, k, d) {
+            try { if (dcOpen(ch)) { ch.send(JSON.stringify({ k: k, d: d })); return true; } } catch (e) {}
+            return false;
+          }
+          function onSnap(s) {
+            var cur = window.latestHostState;
+            if (cur && typeof s.n === 'number' && typeof cur.n === 'number' && s.n <= cur.n) return;   // stale / out of order
+            s.rt = Date.now(); window.latestHostState = s;
+          }
+          function onEvt(e) { var q = window.netEvtQueue; q.push(e); if (q.length > 300) q.shift(); }
+          function onPong(d) {
+            var r = performance.now() - d.t;
+            window.NetPing.rtt = window.NetPing.rtt ? window.NetPing.rtt * 0.7 + r * 0.3 : r;
+          }
+          function handlePacket(raw) {
+            var m; try { m = JSON.parse(raw); } catch (e) { return; }
+            switch (m.k) {
+              case 'snap': onSnap(m.d); break;
+              case 'evt': onEvt(m.d); break;
+              case 'g_input': window.remoteP2Input = m.d; break;
+              case 'rtt_ping': dcSend(P.u, 'rtt_pong', m.d); break;
+              case 'rtt_pong': onPong(m.d); break;
+            }
+          }
+          function wireChannel(ch) {
+            ch.onmessage = function (ev) { handlePacket(ev.data); };
+          }
+          function stopPeer() {
+            try { if (P.pc) P.pc.close(); } catch (e) {}
+            P.pc = null; P.u = null; P.r = null; P.pendingIce = [];
+          }
+          function startPeer(initiator) {
+            stopPeer();
+            if (!window.RTCPeerConnection) return;
+            try {
+              var pc = new RTCPeerConnection(ICE);
+              P.pc = pc;
+              pc.onicecandidate = function (e) { if (e.candidate) socket.emit('rtc_signal', { t: 'ice', c: e.candidate }); };
+              pc.ondatachannel = function (e) {
+                if (e.channel.label === 'u') P.u = e.channel; else P.r = e.channel;
+                wireChannel(e.channel);
+              };
+              if (initiator) {
+                P.u = pc.createDataChannel('u', { ordered: false, maxRetransmits: 0 });
+                P.r = pc.createDataChannel('r', { ordered: true });
+                wireChannel(P.u); wireChannel(P.r);
+                pc.createOffer()
+                  .then(function (o) { return pc.setLocalDescription(o); })
+                  .then(function () { socket.emit('rtc_signal', { t: 'offer', sdp: pc.localDescription }); })
+                  .catch(function (e) { console.warn('p2p offer failed', e); });
+              }
+            } catch (e) { console.warn('p2p unavailable', e); P.pc = null; }
+          }
+          function flushIce() {
+            var pc = P.pc; if (!pc) return;
+            P.pendingIce.splice(0).forEach(function (c) { pc.addIceCandidate(c).catch(function () {}); });
+          }
+          socket.on('rtc_signal', function (m) {
+            if (!m) return;
+            if (!P.pc && m.t === 'offer') startPeer(false);
+            var pc = P.pc; if (!pc) return;
+            try {
+              if (m.t === 'offer') {
+                pc.setRemoteDescription(m.sdp)
+                  .then(function () { return pc.createAnswer(); })
+                  .then(function (a) { return pc.setLocalDescription(a); })
+                  .then(function () { socket.emit('rtc_signal', { t: 'answer', sdp: pc.localDescription }); flushIce(); })
+                  .catch(function (e) { console.warn('p2p answer failed', e); });
+              } else if (m.t === 'answer') {
+                pc.setRemoteDescription(m.sdp).then(flushIce).catch(function (e) { console.warn('p2p answer apply failed', e); });
+              } else if (m.t === 'ice') {
+                if (pc.remoteDescription) pc.addIceCandidate(m.c).catch(function () {}); else P.pendingIce.push(m.c);
+              }
+            } catch (e) { console.warn('p2p signal error', e); }
+          });
+
+          window.NetSend = {
+            snap: function (s) {
+              if (dcOpen(P.u)) { if (P.u.bufferedAmount < 262144) dcSend(P.u, 'snap', s); return; }   // congested: drop, never queue
+              socket.volatile.emit('snap', s);
+            },
+            input: function (k) { if (!dcSend(P.r, 'g_input', k)) socket.emit('g_input', k); },
+            evt: function (k, d) { if (!dcSend(P.r, 'evt', { k: k, d: d })) socket.emit('evt', { k: k, d: d }); }
+          };
+          window.NetSync = { send: function (k, d) { window.NetSend.evt(k, d); } };
+          window.NetPath = function () { return p2pReady() ? 'p2p' : 'relay'; };
 
           window.NetSel = {
             sel: null, last: {}, pending: {},
@@ -429,6 +523,7 @@
             ns.mySide = ns.isHost ? 0 : 1; ns.inGame = false;
             ns.names = (d && d.names) || ['Player 1', 'Player 2'];
             window.latestHostState = null; window.remoteP2Input = null; window.netEvtQueue.length = 0;
+            startPeer(ns.isHost);   // direct link is negotiated while players pick their teams
             var cb = enterCb; enterCb = null;
             if (cb) cb();   // runs the game's own 2-player flow -> native selector
           });
@@ -443,27 +538,33 @@
           });
 
           /* ================= gameplay relays ================= */
-          socket.on('snap', function (s) { s.rt = Date.now(); window.latestHostState = s; });
-          socket.on('evt', function (e) {
-            var q = window.netEvtQueue; q.push(e); if (q.length > 300) q.shift();
-          });
+          socket.on('snap', onSnap);
+          socket.on('evt', onEvt);
           socket.on('g_input', function (d) { window.remoteP2Input = d; });
 
           /* ================= ping meter (player <-> player round trip) ================= */
           socket.on('rtt_ping', function (d) { socket.emit('rtt_pong', d); });
-          socket.on('rtt_pong', function (d) {
-            var r = performance.now() - d.t;
-            window.NetPing.rtt = window.NetPing.rtt ? window.NetPing.rtt * 0.7 + r * 0.3 : r;
-          });
+          socket.on('rtt_pong', onPong);
+          var lastPath = '';
           setInterval(function () {
             var el = $('net-ping');
             if (!ns.online) { el.style.display = 'none'; return; }
-            socket.emit('rtt_ping', { t: performance.now() });
+            var path = window.NetPath();
+            if (path !== lastPath) { lastPath = path; window.NetPing.rtt = 0; }   // re-measure when the route changes
+            var ping = { t: performance.now() };
+            if (!dcSend(P.u, 'rtt_ping', ping)) socket.emit('rtt_ping', ping);
             var r = window.NetPing.rtt;
             var tr = (socket.io && socket.io.engine && socket.io.engine.transport) ? socket.io.engine.transport.name : '?';
+            var route = path === 'p2p' ? 'P2P direct' : 'relay (' + (tr === 'polling' ? 'polling – WebSocket blocked?' : tr) + ')';
+            var warn = '';
+            if (window.__NET_BUILD !== 3) warn = '  ⚠ OLD GAME FILE – hard refresh (Ctrl+Shift+R)';
+            var dbg = window.NetDebug || {};
+            if (dbg.youErr) warn += '  ⚠ label: ' + dbg.youErr;
+            if (dbg.predErr) warn += '  ⚠ predict: ' + dbg.predErr;
+            if (dbg.hostErr) warn += '  ⚠ host: ' + dbg.hostErr;
             el.style.display = 'block';
-            el.textContent = (r ? 'ping ' + Math.round(r) + ' ms' : 'ping …') + ' · ' + (tr === 'polling' ? 'polling (slow: WebSocket blocked?)' : tr);
-            el.style.color = !r ? '#ccc' : r < 80 ? '#6dff8a' : r < 160 ? '#ffd54a' : '#ff6b6b';
+            el.textContent = (r ? 'ping ' + Math.round(r) + ' ms' : 'ping …') + ' · ' + route + warn;
+            el.style.color = warn ? '#ff8a8a' : !r ? '#ccc' : r < 80 ? '#6dff8a' : r < 160 ? '#ffd54a' : '#ff6b6b';
           }, 1000);
 
           /* ================= rematch / disconnect ================= */

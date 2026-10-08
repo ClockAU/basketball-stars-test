@@ -96,6 +96,10 @@ io.on('connection', (socket) => {
     if (room && room.guest === socket.id) io.to(room.host).emit('g_input', d);
   });
 
+  // WebRTC signaling (offer / answer / ICE) so the two browsers can connect directly.
+  // Game traffic then bypasses this server entirely; it only stays as the fallback path.
+  socket.on('rtc_signal', (d) => { if (socket.roomId) socket.to(socket.roomId).emit('rtc_signal', d); });
+
   // player <-> player round-trip measurement (shown as the in-game ping)
   socket.on('rtt_ping', (d) => { if (socket.roomId) socket.to(socket.roomId).emit('rtt_ping', d); });
   socket.on('rtt_pong', (d) => { if (socket.roomId) socket.to(socket.roomId).emit('rtt_pong', d); });
