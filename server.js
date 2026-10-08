@@ -6,7 +6,22 @@ const io = require('socket.io')(http, {
   perMessageDeflate: false   // no compression delay on the tiny, frequent game packets
 });
 
-app.use(express.static(__dirname));
+// gzip: the 2 MB game file travels as ~300 KB (optional: skipped if 'compression' isn't installed)
+try { app.use(require('compression')()); } catch (e) { console.log('compression not installed - serving uncompressed'); }
+
+// never expose the server's own source/config through the static folder
+app.use((req, res, next) => {
+  if (/^\/(server\.js|package(-lock)?\.json|make_exe\.js|apply_online_patch\.py|node_modules|exe-build|\.git)(\/|$)/i.test(req.path)) {
+    return res.sendStatus(404);
+  }
+  next();
+});
+
+// game files are cached for a week (the game file itself is versioned with ?v=N); html is always revalidated
+app.use(express.static(__dirname, {
+  maxAge: '7d',
+  setHeaders: (res, file) => { if (file.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache'); }
+}));
 
 const rooms = {};
 

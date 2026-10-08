@@ -26,53 +26,10 @@
             });
         </script>
 
-        <script type="text/javascript" src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
         <script type="text/javascript" src="assets/box2dweb/nape.min.js">
             var nape ="nape.min.js" ;
         </script>
-        <script type="text/javascript" src="assets/box2dweb/nape-debug-draw.min.js"></script>
-        <script type="text/javascript" src="assets/box2dweb/jquery-3.1.1.min.js"></script>
-        <script type="text/javascript" src="assets/box2dweb/easeljs-0.8.2.combined.js"></script>
-        <script type="text/javascript" src="assets/box2dweb/bluebird.min.js"></script>
-        <script type="text/javascript">
-            var useEvents = typeof Event === "function";
-
-            var myDispatchEvent = function (name) {
-                var event;
-                if (useEvents) {
-                    event = new Event(name);
-                } else {
-                    event = document.createEvent("Event");
-                    event.initEvent(name, true, true);
-                }
-                document.getElementById("content").dispatchEvent(event);
-            };
-
-            window["GD_OPTIONS"] = {
-                gameId: "69d78d071f704fa183d75b4114ae40ec",
-                onEvent: function (event) {
-                    switch (event.name) {
-                        case "SDK_GAME_START":
-                            myDispatchEvent("SDK_GAME_START");
-                            break;
-                        case "SDK_GAME_PAUSE":
-                            myDispatchEvent("SDK_GAME_PAUSE");
-                            break;
-                    }
-                },
-            };
-            (function (d, s, id) {
-                var js,
-                    fjs = d.getElementsByTagName(s)[0];
-                if (d.getElementById(id)) return;
-                js = d.createElement(s);
-                js.id = id;
-                js.charset = "utf-8";
-                js.src = "assets/main.min.js?v=3";
-                fjs.parentNode.insertBefore(js, fjs);
-            })(document, "script", "gamedistribution-jssdk");
-        </script>
-        <script type="text/javascript" charset="utf-8" src="assets/basketball_legends_2019.min.js?v=3"></script>
+        <script type="text/javascript" charset="utf-8" src="assets/basketball_legends_2019.min.js?v=4"></script>
 
         <!-- ===== ONLINE MULTIPLAYER + CONTROLS OVERLAYS ===== -->
         <style>
@@ -144,9 +101,6 @@
           <h2>Controls</h2>
           <div style="font-size:12px;color:#9fb6cc;margin-bottom:8px;">Rebind any action. Applies to online and single-player games; local 2-player always uses the default keys.</div>
           <div id="net-keys"></div>
-          <label style="display:block;margin:12px 0 4px;font-size:13px;text-align:left;">
-            <input type="checkbox" id="net-predict"> Smooth my movement online (client-side prediction)
-          </label>
           <button class="net-btn grey" id="net-keys-reset">Reset all keys to default</button>
           <button class="net-btn" id="net-settings-close">Close</button>
         </div>
@@ -172,7 +126,6 @@
             get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
             set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
           };
-          window.NetOpts = { predict: store.get('bs_predict') !== '0' };
 
           var role = null, enterCb = null, rematchAsked = false;
 
@@ -305,8 +258,6 @@
             });
           }
           renderKeys();
-          $('net-predict').checked = window.NetOpts.predict;
-          $('net-predict').onchange = function (e) { window.NetOpts.predict = e.target.checked; store.set('bs_predict', e.target.checked ? '1' : '0'); };
           $('net-keys-reset').onclick = function () { binds = {}; saveKeys(); renderKeys(); };
           $('net-gear').onclick = function () { renderKeys(); showEl('net-settings', true); };
           $('net-settings-close').onclick = function () { if (!KB.capturing) showEl('net-settings', false); };
@@ -557,10 +508,9 @@
             var tr = (socket.io && socket.io.engine && socket.io.engine.transport) ? socket.io.engine.transport.name : '?';
             var route = path === 'p2p' ? 'P2P direct' : 'relay (' + (tr === 'polling' ? 'polling – WebSocket blocked?' : tr) + ')';
             var warn = '';
-            if (window.__NET_BUILD !== 3) warn = '  ⚠ OLD GAME FILE – hard refresh (Ctrl+Shift+R)';
+            if (window.__NET_BUILD !== 4) warn = '  ⚠ OLD GAME FILE – hard refresh (Ctrl+Shift+R)';
             var dbg = window.NetDebug || {};
             if (dbg.youErr) warn += '  ⚠ label: ' + dbg.youErr;
-            if (dbg.predErr) warn += '  ⚠ predict: ' + dbg.predErr;
             if (dbg.hostErr) warn += '  ⚠ host: ' + dbg.hostErr;
             el.style.display = 'block';
             el.textContent = (r ? 'ping ' + Math.round(r) + ' ms' : 'ping …') + ' · ' + route + warn;
